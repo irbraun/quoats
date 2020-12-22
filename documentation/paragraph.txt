@@ -1,0 +1,4 @@
+## Overview
+QuOATS (Querying with Ontology Annotations and Text Similarity) is a webtool built using the [streamlit](LINK) package for querying datasets of phenotype descriptions related to genes. The underlying dataset contains genes across six plant species that are mapped to specific phenotype descriptions in a text format, as well as annotations with ontology terms. More information about the construction of this dataset is available [here](LINK). Four different methods of querying the dataset are provided, with examples and more information about each type of query provided in the table below. The code repository for this webtool is available [here](LINK), and this resource can be repurposed for additional datasets by replacing the underlying dataset. The utility of this webtool and the queries that can be executed with it are further discussed in the preprint available here [here](LINK). 
+
+## Instructions
