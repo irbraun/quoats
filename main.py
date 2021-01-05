@@ -52,7 +52,9 @@ nltk.download('averaged_perceptron_tagger', quiet=True)
 
 
 
-# Path to the dataset of genes, phenotype descriptions and annotations to be used. 
+# Path to the documentation and dataset of genes, phenotype descriptions and annotations to be used. 
+DOC_PARAGRAPH_PATH = "documentation/paragraph.txt"
+DOC_TABLE_PATH = "documentation/table.txt"
 DATASET_PATH = "data/genes_texts_annots.csv"
 
 # Names and paths specific to the ontologies used.
@@ -252,9 +254,10 @@ st.image(Image.open(PATH_TO_LOGO_PNG), caption=None, width=500, output_format="p
 
 
 
+with open(DOC_PARAGRAPH_PATH,"r") as f:
+	doc_paragraph = f.read()
 
-
-with open("documentation/table.txt","r") as f:
+with open(DOC_TABLE_PATH,"r") as f:
 	table_string = f.read()
 	lines = table_string.split("\n")
 	lines = ["|{}|".format(line.replace("\t","|")) for line in lines]
@@ -265,11 +268,6 @@ with open("documentation/table.txt","r") as f:
 	all_lines.append(header_separation_line)
 	all_lines.extend(lines[1:])
 	doc_table = "\n".join(all_lines)
-
-
-with open("documentation/paragraph.txt","r") as f:
-	doc_paragraph = f.read()
-
 
 doc_expander = st.beta_expander(label="Show/Hide Documentation", expanded=True)
 with doc_expander:
@@ -734,7 +732,7 @@ input_text = st.text_input(label="Enter text here")
 
 
 def get_column_explanation_table(column_keys_and_explanations):
-	"""Formats a string for a markdown table explaning columns in the results.
+	"""Formats a string for a markdown table explaining columns in the results.
 	
 	Args:
 	    column_keys_and_explanations (TYPE): Description
@@ -769,30 +767,27 @@ def display_download_link(df, column_keys, column_keys_to_unwrap, column_keys_to
 	    column_keys_to_list (TYPE): Description
 	    num_rows (TYPE): Description
 	"""
-	# Subsetting the dataframe.
+
+
+	# Subsetting the dataframe to only contain the indicated number of rows, assumes it is already in the desired order.
 	my_df = df[[COLUMN_NAMES[x] for x in column_keys]].head(num_rows)
 
-
-	# Anyresults that had newline characters that were being used just to wrap to the next line.
+	# If there were columns that used newline tokens to wrap lines, remove those tokens before downloading.
 	for key in column_keys_to_unwrap:
 		my_df[COLUMN_NAMES[key]] = my_df[COLUMN_NAMES[key]].map(lambda x: x.replace(NEWLINE_TOKEN,""))
 
-	# Anyresults where the newline character was being used to separate a list of items like scores of terms.
+	# If there were columns that were using newline tokens to separate lists of something like that, represent those with a semicolon instead.
 	for key in column_keys_to_list:
 		my_df[COLUMN_NAMES[key]] = my_df[COLUMN_NAMES[key]].map(lambda x: "{}".format("; ".join(x.split(NEWLINE_TOKEN))))
 
-
-	#if download_all:
-	# Presenting a download link for a tsv file.
+	# Presenting a download link for a tsv file that contains everything in the output table.
 	my_df = my_df
 	tsv = my_df.to_csv(index=False, sep="\t")
 	b64 = base64.b64encode(tsv.encode()).decode() 
 	link = f'<a href="data:file/tsv;base64,{b64}" download="query_results.tsv">Complete tab-separated dataset</a>'
 	st.markdown(link, unsafe_allow_html=True)
 
-
-	#elif download_genes:
-	# Presenting a download link for a tsv file.
+	# Presenting a download link for a tsv file that contains just the list of gene identifiers in the ranked order.
 	column_keys_to_keep = ["rank","species","gene","model"]
 	my_df = my_df[[COLUMN_NAMES[x] for x in column_keys_to_keep]]
 	tsv = my_df.to_csv(index=False, sep="\t")
@@ -810,7 +805,7 @@ def display_download_link(df, column_keys, column_keys_to_unwrap, column_keys_to
 
 
 def display_plottly_dataframe(df, column_keys, column_keys_to_wrap, num_rows):
-	"""Formats and presents the plottly table.
+	"""Formats and presents the plotly table.
 	
 	Args:
 	    df (TYPE): Description
@@ -838,7 +833,6 @@ def display_plottly_dataframe(df, column_keys, column_keys_to_wrap, num_rows):
 
 
 
-
 	# Pick background colors for the rows by alternating with repsect to a value in one of the columns.
 	# This is intended to be used for making the rows that refer to a particular gene all be the same background color.
 	# This way when the data is sorted so all those rows are together there will be an alternating effect.
@@ -856,13 +850,13 @@ def display_plottly_dataframe(df, column_keys, column_keys_to_wrap, num_rows):
 
 
 
+	# Display the table as a plotly figure with the provided formatting.
 	fig = go.Figure(data=[go.Table(
 		columnorder = list(range(len(column_keys))),
 		columnwidth = [COLUMN_WIDTHS[x] for x in column_keys],
 		header=dict(values=header_values, fill_color=TABLE_HEADER_COLOR, align="left", font=dict(color='black', size=14), height=HEADER_HEIGHT),
 		cells=dict(values=cell_values, fill_color=fill_colors, align="left", font=dict(color='black', size=14)),
 		)])
-
 	fig.update_layout(width=TABLE_WIDTH, height=TABLE_HEIGHT)
 	st.plotly_chart(fig)
 
@@ -1245,7 +1239,7 @@ elif search_type == "keyword" and input_text != "":
 
 
 
-	phene_per_line = st.checkbox(label="Show individual matching sentences from phenotype descriptions on their own row of the results instead", value=False)
+	phene_per_line = st.checkbox(label="Show individual matching sentences on each row (instead of showing one gene on each row)", value=False)
 
 
 
