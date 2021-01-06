@@ -138,6 +138,7 @@ COLUMN_SETTINGS = [
 ]
 
 COLUMN_NAMES = {x[0]:x[1] for x in COLUMN_SETTINGS}
+COLUMN_NAMES_TO_OUTPUT_COLUMN_NAME = {v:v.replace("<b>","") for k,v in COLUMN_NAMES.items()}
 COLUMN_WIDTHS = {x[0]:x[2] for x in COLUMN_SETTINGS}
 
 
@@ -246,6 +247,7 @@ PATH_TO_LOGO_PNG = "images/logo.png"
 st.image(Image.open(PATH_TO_LOGO_PNG), caption=None, width=500, output_format="png")
 
 
+st.markdown("### A tool for **Qu**erying phenotype descriptions with **O**ntology **A**nnotations and **T**ext **S**imilarity")
 
 
 
@@ -660,7 +662,8 @@ if len(species_list) == 0:
 
 # Options that are general and apply to all the types of queries.
 st.sidebar.markdown("### General Options for all Queries")
-truncate = st.sidebar.checkbox(label="Truncate phenotype descriptions", value=True)
+TRUNCATED_TEXT_LABEL = "Truncate phenotype descriptions" 
+truncate = st.sidebar.checkbox(label=TRUNCATED_TEXT_LABEL, value=True)
 max_number_of_genes_to_show = st.sidebar.number_input("Maximum number of genes to include in results", min_value=1, max_value=None, value=50, step=50)
 TABLE_WIDTH = st.sidebar.slider(label="Table width in pixels", min_value=400, max_value=8000, value=2000, step=100, format=None, key=None)
 
@@ -706,7 +709,7 @@ st.sidebar.markdown(contact_text)
 # Display the search section of the main page.
 st.markdown("## Search")
 
-search_types = ["phenotype", "keyword", "ontology", "gene"]
+search_types = ["free_text", "keywords", "terms", "identifiers"]
 search_type_labels = ["Free Text", "Keywords & Keyphrases", "Ontology Terms", "Gene Identifiers"]
 search_type_label_map = {t:l for t,l in zip(search_types,search_type_labels)}
 search_types_format_func = lambda x: search_type_label_map[x]
@@ -757,7 +760,7 @@ def get_column_explanation_table(column_keys_and_explanations):
 
 
 
-def display_download_link(df, column_keys, column_keys_to_unwrap, column_keys_to_list, num_rows):
+def display_download_links(df, column_keys, column_keys_to_unwrap, column_keys_to_list, num_rows):
 	"""Formats and presents the links for downloading results.
 	
 	Args:
@@ -770,30 +773,40 @@ def display_download_link(df, column_keys, column_keys_to_unwrap, column_keys_to
 
 
 	# Subsetting the dataframe to only contain the indicated number of rows, assumes it is already in the desired order.
-	my_df = df[[COLUMN_NAMES[x] for x in column_keys]].head(num_rows)
+	subsets_df = df[[COLUMN_NAMES[x] for x in column_keys]].head(num_rows)
 
 	# If there were columns that used newline tokens to wrap lines, remove those tokens before downloading.
 	for key in column_keys_to_unwrap:
-		my_df[COLUMN_NAMES[key]] = my_df[COLUMN_NAMES[key]].map(lambda x: x.replace(NEWLINE_TOKEN,""))
+		subsets_df[COLUMN_NAMES[key]] = subsets_df[COLUMN_NAMES[key]].map(lambda x: x.replace(NEWLINE_TOKEN,""))
 
 	# If there were columns that were using newline tokens to separate lists of something like that, represent those with a semicolon instead.
 	for key in column_keys_to_list:
-		my_df[COLUMN_NAMES[key]] = my_df[COLUMN_NAMES[key]].map(lambda x: "{}".format("; ".join(x.split(NEWLINE_TOKEN))))
+		subsets_df[COLUMN_NAMES[key]] = subsets_df[COLUMN_NAMES[key]].map(lambda x: "{}".format("; ".join(x.split(NEWLINE_TOKEN))))
+
+
 
 	# Presenting a download link for a tsv file that contains everything in the output table.
-	my_df = my_df
-	tsv = my_df.to_csv(index=False, sep="\t")
+	full = subsets_df.copy(deep=True)
+	full.rename(COLUMN_NAMES_TO_OUTPUT_COLUMN_NAME, inplace=True, axis="columns")
+	tsv = full.to_csv(index=False, sep="\t")
 	b64 = base64.b64encode(tsv.encode()).decode() 
 	link = f'<a href="data:file/tsv;base64,{b64}" download="query_results.tsv">Complete tab-separated dataset</a>'
 	st.markdown(link, unsafe_allow_html=True)
 
+
 	# Presenting a download link for a tsv file that contains just the list of gene identifiers in the ranked order.
+	genes_only = subsets_df.copy(deep=True)
 	column_keys_to_keep = ["rank","species","gene","model"]
-	my_df = my_df[[COLUMN_NAMES[x] for x in column_keys_to_keep]]
-	tsv = my_df.to_csv(index=False, sep="\t")
+	genes_only = genes_only[[COLUMN_NAMES[x] for x in column_keys_to_keep]]
+	genes_only = genes_only.drop_duplicates(inplace=False)
+	genes_only.rename(COLUMN_NAMES_TO_OUTPUT_COLUMN_NAME, inplace=True, axis="columns")
+	tsv = genes_only.to_csv(index=False, sep="\t")
 	b64 = base64.b64encode(tsv.encode()).decode() 
 	link = f'<a href="data:file/tsv;base64,{b64}" download="query_results.tsv">List of genes only</a>'
 	st.markdown(link, unsafe_allow_html=True)
+
+
+
 
 
 
@@ -824,7 +837,8 @@ def display_plottly_dataframe(df, column_keys, column_keys_to_wrap, num_rows):
 
 
 	# Shouldn't have to do it this way, but we do. There is a bug with inserting the <br> tags any other way than in strings specified in this way.
-	# For some reason, HTML tags present before this point are not recognized, I haven't figured out why.
+	# For some reason, HTML tags present before this point are not recognized, I haven't figured out why. The newline token is a special token in 
+	# this script that has multiple uses, and that token needs to translated to the tag that actually produces a newline in the plotly table here.
 	indices_of_columns_to_wrap = [column_keys.index(x) for x in column_keys_to_wrap]
 	for col_idx,col_key in zip(indices_of_columns_to_wrap,column_keys_to_wrap):
 		contents = list(cell_values[col_idx][COLUMN_NAMES[col_key]].values)
@@ -850,7 +864,7 @@ def display_plottly_dataframe(df, column_keys, column_keys_to_wrap, num_rows):
 
 
 
-	# Display the table as a plotly figure with the provided formatting.
+	# Display the table as a plotly figure with the provided formatting, with dimensions specified by constants and the dynamically generated color lists.
 	fig = go.Figure(data=[go.Table(
 		columnorder = list(range(len(column_keys))),
 		columnwidth = [COLUMN_WIDTHS[x] for x in column_keys],
@@ -898,7 +912,7 @@ def display_plottly_dataframe(df, column_keys, column_keys_to_wrap, num_rows):
 
 
 
-if search_type == "gene" and input_text != "":
+if search_type == "identifiers" and input_text != "":
 
 
 	# Start the results section of the page.
@@ -976,7 +990,8 @@ if search_type == "gene" and input_text != "":
 				s_id_to_s_embedding = approaches[approach]["sentence_id_to_embedding"],
 				g_id_to_s_ids = gene_id_to_sentences_ids,
 				model = doc2vec_model,
-				threshold = approaches[approach]["threshold"])
+				threshold = approaches[approach]["threshold"],
+				first=i)
 
 
 
@@ -1013,6 +1028,7 @@ if search_type == "gene" and input_text != "":
 			if results.shape[0] == 0:
 				st.markdown("No genes were found that have phenotypes described similarly to this query.")
 
+
 			
 			# Display the download options and the plottly table of the results if there were any rows remaining.
 			else:
@@ -1024,10 +1040,28 @@ if search_type == "gene" and input_text != "":
 				column_keys_to_list = []
 				num_rows = results.shape[0]
 
-				# Create the expanded section for presenting download options.
-				expander = st.beta_expander(label="Show/Hide Download Options")
+
+
+
+
+				# Create the expanded section for explaning what the columns are.
+				expander = st.beta_expander(label="Show/Hide Explanation of Columns", expanded=True)
 				with expander:
-					display_download_link(results, columns_to_include_keys, column_keys_to_unwrap, column_keys_to_list, num_rows)
+					column_keys_and_explanations = [
+					("rank", "Genes are ranked first by the maximum score for any query sentence to a sentence associated with this gene, and then by the mean score for all query sentences."),
+					("score","The average similarity between each word in the query sentence and the most similar word in the phenotype description sentence."),
+					("query_sentence","A sentence from the query.."),
+					("matching_sentence","A sentence from the phenotype descriptions associated with this gene. These sentences are truncated by default so as to only take up one line in the table. Uncheck the '{}' option to expand them.".format(TRUNCATED_TEXT_LABEL)),
+					]
+					st.markdown(get_column_explanation_table(column_keys_and_explanations))
+
+
+
+
+				# Create the expanded section for presenting download options.
+				expander = st.beta_expander(label="Show/Hide Download Options", expanded=False)
+				with expander:
+					display_download_links(results, columns_to_include_keys, column_keys_to_unwrap, column_keys_to_list, num_rows)
 
 				# Show the main plottly table.
 				display_plottly_dataframe(results, columns_to_include_keys, columns_to_include_keys_and_wrap, num_rows)
@@ -1063,7 +1097,7 @@ if search_type == "gene" and input_text != "":
 #     //     //////// //     // //         // ////////  
 
 
-elif search_type == "ontology" and input_text != "":
+elif search_type == "terms" and input_text != "":
 
 	st.markdown("## Results")
 
@@ -1165,29 +1199,23 @@ elif search_type == "ontology" and input_text != "":
 			num_rows = results.shape[0]
 
 
-			# Create the expanded section for presenting download options.
-			expander = st.beta_expander(label="Explanation of each columns", expanded=True)
+			# Create the expanded section for explaning what the columns are.
+			expander = st.beta_expander(label="Show/Hide Explanation of Columns", expanded=True)
 			with expander:
-				st.markdown("""
-					|Column|				Contents
-					|-|-
-					|Rank|					Genes are ranked by the number of different query terms that map to annotations for a given gene.
-					|Species|				The species of this gene.
-					|Gene|					The primary gene identifier associated with the gene in this dataset.
-					|Gene Model|			Gene model identifier if one is present in the dataset for this gene.
-					|Query Term ID|			One ontology term identifier from the query.
-					|Query Term Name|		The corresponding name of that term in the ontology.
-					|Annotated Term ID|		The identifier of an ontology term annotated to this gene, that is either equal to or inherits the queried term.
-					|Annotated Term Name|	The corresponding name of that term in the ontology.
-					""")
-
-
+				column_keys_and_explanations = [
+				("rank", "Genes are ranked by the number of differerent query terms that map to annotations for a given gene."),
+				("query_term_id","An ontology term identifier from the query."),
+				("query_term_name","The corresponding name of that term in the ontology."),
+				("annotated_term_id","The identifier of an ontology term annotated to this gene, that is either equal to or inherits the queried term."),
+				("annotated_term_name","The corresponding name of that term in the ontology.")
+				]
+				st.markdown(get_column_explanation_table(column_keys_and_explanations))
 
 
 			# Create the expanded section for presenting download options.
-			expander = st.beta_expander(label="Download Options")
+			expander = st.beta_expander(label="Show/Hide Download Options", expanded=False)
 			with expander:
-				display_download_link(results, columns_to_include_keys, column_keys_to_unwrap, column_keys_to_list, num_rows)
+				display_download_links(results, columns_to_include_keys, column_keys_to_unwrap, column_keys_to_list, num_rows)
 			
 			# Show the main dataframe of results.
 			display_plottly_dataframe(results, columns_to_include_keys, columns_to_include_keys_and_wrap, num_rows)
@@ -1218,7 +1246,7 @@ elif search_type == "ontology" and input_text != "":
 
 
 # Handling keyword and keyphrase queries.
-elif search_type == "keyword" and input_text != "":
+elif search_type == "keywords" and input_text != "":
 
 
 	# Modifying the keywords and phrases in way that makes them easy to compare against the preprocessed descripitons.
@@ -1317,22 +1345,16 @@ elif search_type == "keyword" and input_text != "":
 			if phene_per_line:
 				column_keys_and_explanations = [
 				("rank", "Genes are ranked first by the maximum score for any query sentence to a sentence associated with this gene, and then by the mean score for all query sentences."),
-				("species","The species of this gene."),
-				("gene","The primary gene identifier associated with the gene in this dataset."),
-				("model","Gene model identifier if one is present in the dataset for this gene."),
 				("keywords","The words and phrases from the query that are present in this sentence from the phenotype descriptions for this gene."),
-				("matching_sentence","A sentence from the phenotype descriptions associated with this gene. These sentences are truncated by default so as to only take up one line in the table. Uncheck the compress phenotypes in table option to expand them."),
+				("matching_sentence","A sentence from the phenotype descriptions associated with this gene. These sentences are truncated by default so as to only take up one line in the table. Uncheck the '{}' option to expand them.".format(TRUNCATED_TEXT_LABEL)),
 				]
 				st.markdown(get_column_explanation_table(column_keys_and_explanations))
 
 			else:
 				column_keys_and_explanations = [
 				("rank", "Genes are ranked first by the maximum score for any query sentence to a sentence associated with this gene, and then by the mean score for all query sentences."),
-				("species","The species of this gene."),
-				("gene","The primary gene identifier associated with the gene in this dataset."),
-				("model","Gene model identifier if one is present in the dataset for this gene."),
 				("keywords","The words and phrases from the query that are present in this sentence from the phenotype descriptions for this gene."),
-				("matching_sentence","All of the sentences in the phenotype descriptions associated with this gene. These sentences are truncated by default so as to only take up one line in the table. Uncheck the compress phenotypes in table option to expand them."),
+				("matching_sentence","All of the sentences in the phenotype descriptions associated with this gene. These sentences are truncated by default so as to only take up one line in the table. Uncheck the '{}' option to expand them.".format(TRUNCATED_TEXT_LABEL)),
 				]
 				st.markdown(get_column_explanation_table(column_keys_and_explanations))
 
@@ -1341,9 +1363,9 @@ elif search_type == "keyword" and input_text != "":
 
 
 		# Create the expanded section for presenting download options.
-		expander = st.beta_expander(label="Download Options")
+		expander = st.beta_expander(label="Show/Hide Download Options", expanded=False)
 		with expander:
-			display_download_link(results, columns_to_include_keys, column_keys_to_unwrap, column_keys_to_list, num_rows)
+			display_download_links(results, columns_to_include_keys, column_keys_to_unwrap, column_keys_to_list, num_rows)
 		
 
 		# Display the main plottly table.
@@ -1372,7 +1394,7 @@ elif search_type == "keyword" and input_text != "":
 # /**      /**   //**/********/********      /**    /******** **   //**    /**    
 # //       //     // //////// ////////       //     //////// //     //     //     
 
-elif search_type == "phenotype" and input_text != "":
+elif search_type == "free_text" and input_text != "":
 
 
 	search_string = input_text
@@ -1444,19 +1466,14 @@ elif search_type == "phenotype" and input_text != "":
 		num_rows = results.shape[0]
 
 
-
-
 		# Create the expanded section for explaning what the columns are.
 		expander = st.beta_expander(label="Show/Hide Explanation of Columns", expanded=True)
 		with expander:
 			column_keys_and_explanations = [
 			("rank", "Genes are ranked first by the maximum score for any query sentence to a sentence associated with this gene, and then by the mean score for all query sentences."),
-			("species","The species of this gene."),
-			("gene","The primary gene identifier associated with the gene in this dataset."),
-			("model","Gene model identifier if one is present in the dataset for this gene."),
 			("score","The average similarity between each word in the query sentence and the most similar word in the phenotype description sentence."),
 			("query_sentence","A sentence from the query.."),
-			("matching_sentence","A sentence from the phenotype descriptions associated with this gene. These sentences are truncated by default so as to only take up one line in the table. Uncheck the compress phenotypes in table option to expand them."),
+			("matching_sentence","A sentence from the phenotype descriptions associated with this gene. These sentences are truncated by default so as to only take up one line in the table. Uncheck the '{}' option to expand them.".format(TRUNCATED_TEXT_LABEL)),
 			]
 			st.markdown(get_column_explanation_table(column_keys_and_explanations))
 
@@ -1464,7 +1481,7 @@ elif search_type == "phenotype" and input_text != "":
 		# Create the expanded section for presenting download options.
 		expander = st.beta_expander(label="Show/Hide Download Options", expanded=False)
 		with expander:
-			display_download_link(results, columns_to_include_keys, column_keys_to_unwrap, column_keys_to_list, num_rows)
+			display_download_links(results, columns_to_include_keys, column_keys_to_unwrap, column_keys_to_list, num_rows)
 
 
 		# Show the main plottly table.
@@ -1487,17 +1504,11 @@ elif search_type == "phenotype" and input_text != "":
 
 
 
-
-
-
-
-
-
-# Nothing was searched. Default to now showing anything and waiting for a widget value to change.
+# Nothing was searched. Default to not showing anything and waiting for one of the interactive widgets to change value.
 else:
 	pass
-	# TODO Should the whole dataset be displayed here instead?
-	# TODO Keeping the else pass for now to remind me someresults might need to go here.
+	# Should the whole dataset be displayed here instead?
+	# Keeping the else pass as a reminder that some default information could be displayed rather than nothing.
 
 
 

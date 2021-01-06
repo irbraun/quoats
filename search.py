@@ -1,7 +1,6 @@
 import pandas as pd
 import numpy as np
 import sys
-
 from scipy.spatial.distance import cosine
 
 
@@ -133,7 +132,7 @@ def _get_sentence_scores_for_query_string_2(query_sentence, sentence_id_to_embed
 
 
 
-def handle_free_text_query_with_precomputed_sentence_embeddings(search_string, max_genes, sent_tokenize_f, preprocess_f, vectorization_f, s_id_to_s, s_id_to_s_embedding, g_id_to_s_ids, model, threshold):
+def handle_free_text_query_with_precomputed_sentence_embeddings(search_string, max_genes, sent_tokenize_f, preprocess_f, vectorization_f, s_id_to_s, s_id_to_s_embedding, g_id_to_s_ids, model, threshold, first=None):
 
 
 	search_raw_sentences = sent_tokenize_f(search_string)
@@ -169,7 +168,11 @@ def handle_free_text_query_with_precomputed_sentence_embeddings(search_string, m
 
 
 	# Sorting the rows.
-	thing = thing.sort_values(by=["max_score","mean_score","gene_id","score"], ascending=False)
+	if thing is not None:
+		thing["first"] = thing["gene_id"].map(lambda x: (x==first))
+		thing = thing.sort_values(by=["first","max_score","mean_score","gene_id","score"], ascending=False)
+	else:
+		thing = thing.sort_values(by=["max_score","mean_score","gene_id","score"], ascending=False)
 
 
 	# Filtering and column modifying steps that only apply the sorting is done.
