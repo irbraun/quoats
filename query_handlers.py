@@ -132,7 +132,7 @@ def _get_sentence_scores_for_query_string_2(query_sentence, sentence_id_to_embed
 
 
 
-def handle_free_text_query_with_precomputed_sentence_embeddings(search_string, max_genes, sent_tokenize_f, preprocess_f, vectorization_f, s_id_to_s, s_id_to_s_embedding, g_id_to_s_ids, model, threshold, first=None):
+def handle_free_text_query_with_precomputed_sentence_embeddings(search_string, max_genes, sent_tokenize_f, preprocess_f, vectorization_f, s_id_to_s, s_id_to_s_embedding, g_id_to_s_ids, threshold, first=None):
 
 
 	search_raw_sentences = sent_tokenize_f(search_string)

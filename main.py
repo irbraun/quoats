@@ -32,8 +32,8 @@ from oats.annotation.ontology import Ontology
 
 
 
-
-import search
+from token_similarities import TokenSimilarities
+import query_handlers as qh
 
 
 
@@ -72,7 +72,7 @@ TO_SPECIES_DISPLAY_NAME = {i:d for i,d in zip(SPECIES_STRINGS_IN_DATA,SPECIES_ST
 # Paths relevent to the saved machine learning models or classes.
 DOC2VEC_MODEL_PATH = "models/doc2vec_ep100_both_dim200_a_s_min3.model"
 WORD2VEC_MODEL_PATH = "models/word2vec_both_dim200_500_a_s_min3_window8.model"
-WORD_EMBEDDINGS_PICKLE_PATH = "models/stored_word_embeddings_array.pickle"
+WORD_EMBEDDINGS_PICKLE_PATH = "models/saved_token_similarities.pickle"
 
 
 
@@ -148,85 +148,6 @@ COLUMN_WIDTHS = {x[0]:x[2] for x in COLUMN_SETTINGS}
 
 
 
-
-
-
-
-
-# Dangerous part. These have to exactly match how the text is treated within the notebook that generates the pairwise distances.
-# There's no explicit check in the code that makes sure the processing is identical between those two locations.
-# In the future this should probably be changed so both sets of code are calling one resources that knows how to do these resultss.
-# sentence_tokenize = lambda text: sent_tokenize(text)
-# as_one_token = lambda text: [text]
-# identify_function = lambda text: text
-# simple_preprocessing = lambda text: " ".join(simple_preprocess(text))
-# full_preprocessing = lambda text: " ".join(preprocess_string(text))
-
-
-
-
-
-
-
-
-
-
-# What are the different fields for each approach in this nested dictionary?
-# path: The path to the pickle for loading the oats object associated with this approach.
-# mapping_file: The paths to the pickle that is a dictionary that is needed to convert from the IDs for the saved vectors back to the gene IDs in this dataset.
-# tokenization_function: A function for how text should be tokenized in order to be compatible with this approach.
-# preprocessing_function: A function for how text should be preprocessed in order to be compatible with this approach.
-# APPROACH_NAMES_AND_DATA = {
-# 	"n-grams":{
-# 		"path_dists":"resources/dists_with_n_grams_tokenization_full_words_1_grams_tfidf.pickle", 
-# 		"path_vectors":"resources/vectors_with_n_grams_tokenization_full_words_1_grams_tfidf.pickle",
-# 		"mapping_file":"resources/gene_id_to_unique_ids_sent_tokens.pickle",
-# 		"tokenization_function":sentence_tokenize,
-# 		"preprocessing_function":full_preprocessing,
-# 		},
-# 	"plants":{
-# 		"path_dists":"resources/dists_with_word2vec_tokenization_plants_size_300_mean.pickle", 
-# 		"path_vectors":"resources/vectors_with_word2vec_tokenization_plants_size_300_mean.pickle",
-# 		"mapping_file":"resources/gene_id_to_unique_ids_sent_tokens.pickle",
-# 		"tokenization_function":sentence_tokenize,
-# 		"preprocessing_function":full_preprocessing,
-# 		},
-# 	"wikipedia":{
-# 		"path_dists":"resources/dists_with_word2vec_tokenization_wikipedia_size_300_mean.pickle", 
-# 		"path_vectors":"resources/vectors_with_word2vec_tokenization_wikipedia_size_300_mean.pickle",
-# 		"mapping_file":"resources/gene_id_to_unique_ids_sent_tokens.pickle",
-# 		"tokenization_function":sentence_tokenize,
-# 		"preprocessing_fucntion":identify_function,
-# 		},
-# 	}
-
-from gensim.models.callbacks import CallbackAny2Vec
-class LossLogger(CallbackAny2Vec):
-	def __init__(self):
-		self.epochs = []
-		self.epoch = 1
-		self.losses = []
-		self.deltas = []
-	def on_epoch_end(self, model):
-		loss = model.get_latest_training_loss()
-		if self.epoch == 1:
-			delta = loss
-		else:
-			delta = loss- self.loss_previous_step
-		self.loss_previous_step=loss
-		self.losses.append(loss)
-		self.epochs.append(self.epoch)
-		self.epoch += 1
-		self.deltas.append(delta)
-
-
-
-
-
-
-
-
-
 # How should keywords and phrases be cleaned and handled as far as preprocessing or stemming goes?
 KEYWORD_DELIM = "[DELIM]"
 KEYWORD_PREPROCESSING_FILTERS = [lambda x: x.lower(), strip_non_alphanum, strip_tags, strip_punctuation, stem_text]
@@ -245,8 +166,6 @@ PREPROCESSING_FOR_KEYWORD_SEARCH_FUNCTION = lambda x: "{}{}{}".format(KEYWORD_DE
 st.set_page_config(page_title="QuOATS", layout="wide", initial_sidebar_state="expanded")
 PATH_TO_LOGO_PNG = "images/logo.png"
 st.image(Image.open(PATH_TO_LOGO_PNG), caption=None, width=500, output_format="png")
-
-
 st.markdown("### A tool for **Qu**erying phenotype descriptions with **O**ntology **A**nnotations and **T**ext **S**imilarity")
 
 
@@ -281,11 +200,10 @@ with doc_expander:
 
 
 
-# Setting some of the color schemes and formatting of the page.
-# Sidebar colors.
-# E7FD8E (light green)
-# 90918A (middle gray)
-# 952A53 (eggplant)
+# Setting some of the color schemes and formatting of the page. 
+# E7FD8E light green
+# 90918A middle gray
+# 952A53 eggplant
 # B3DE98 green
 # FF8B00 orange
 # E4F084 yellow
@@ -355,7 +273,7 @@ def truncate_string(text, char_limit):
 	"""
 	truncated_text = text[:char_limit]
 	if len(text)>char_limit:
-		# Make extra room for the "..." string and then add it.
+		# Make extra room for the "..." string and then add it to the end.
 		truncated_text = text[:char_limit-3]
 		truncated_text = "{}...".format(truncated_text)
 	return(truncated_text)
@@ -372,11 +290,11 @@ def gene_name_search(dataset, gene_name):
 	"""Helper function for searching the dataset for a gene identifier.
 	
 	Args:
-		dataset (TYPE): Description
-		gene_name (TYPE): Description
+	    dataset (TYPE): Description
+	    gene_name (TYPE): Description
 	
 	Returns:
-		TYPE: Description
+	    TYPE: Description
 	"""
 	gene_name = gene_name.lower().strip()
 	species_to_gene_id_list = defaultdict(list)
@@ -461,7 +379,11 @@ def initial_setup():
 
 
 
+
+
 	gene_id_to_description = dataset.get_description_dictionary()
+
+
 
 
 	# Create mappings between genes and unique sentences in the dataset and also the reverse mappings.
@@ -479,20 +401,13 @@ def initial_setup():
 
 
 
-
-
 	# Mapping to text strings that have already been preprocessed in some specified way.
 	gene_id_to_preprocessed_description = {i:" ".join(preprocess_string(s)) for i,s in gene_id_to_description.items()}
 	sentence_id_to_preprocessed_sentence = {i:" ".join(preprocess_string(s)) for i,s in sentence_id_to_sentence.items()}
 
-
-
-
 	# Processing the full descriptions or sentences in a way that allows for keyword matching to be done very fast.
 	gene_id_to_description_for_keyword_matching  = {i:PREPROCESSING_FOR_KEYWORD_SEARCH_FUNCTION(s) for i,s in gene_id_to_description.items()}
 	sentence_id_to_sentence_for_keyword_matching = {i:PREPROCESSING_FOR_KEYWORD_SEARCH_FUNCTION(s) for i,s in sentence_id_to_sentence.items()}
-
-
 
 	# These dictionaries have noresults to do with processing, but are used for displaying text in a readable and controlled way in the plottly table. 
 	gene_id_to_descriptions_one_line_truncated = {i:truncate_string(d, DESCRIPTION_COLUMN_WIDTH) for i,d in gene_id_to_description.items()}
@@ -509,11 +424,10 @@ def initial_setup():
 
 
 	# Load the model either from a pickle or have to run the preprocessing steps again.
-	from preprocessing import WordModel
 	if os.path.exists(WORD_EMBEDDINGS_PICKLE_PATH):
 		model = load_from_pickle(WORD_EMBEDDINGS_PICKLE_PATH)
 	else:
-		model = WordModel(WORD2VEC_MODEL_PATH)
+		model = TokenSimilarities(WORD2VEC_MODEL_PATH)
 		save_to_pickle(model, WORD_EMBEDDINGS_PICKLE_PATH)
 
 	# Precomputing other stuff like document or sentence embeddings.
@@ -528,11 +442,13 @@ def initial_setup():
 		"TF-IDF":{
 			"sentence_id_to_embedding":sentence_id_to_tfidf_embedding, 
 			"vectorization_function":lambda x: tfidf_vectorizer.transform([x]).toarray()[0],
+			"preprocessing_function":lambda x: " ".join(preprocess_string(x)),
 			"threshold":0.4, 
 		},
 		"Doc2Vec":{
 			"sentence_id_to_embedding":sentence_id_to_doc2vec_embedding, 
 			"vectorization_function":lambda x: doc2vec_model.infer_vector(x.lower().split()), 
+			"preprocessing_function":lambda x: " ".join(preprocess_string(x)),
 			"threshold":0.6,
 		}
 	}
@@ -544,18 +460,7 @@ def initial_setup():
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-	# What are the resultss that need to be used later? These are all the dictionaries or objects that just need to be created once during initial setup and 
+	# What are the results that need to be used later? These are all the dictionaries or objects that just need to be created once during initial setup and 
 	# then remain unchanged when queries are processed or when results are displayed, they just need to be referenced.
 	return(
 		dataset,
@@ -578,8 +483,6 @@ def initial_setup():
 		sentence_id_to_sentences_with_newline_tokens,
 		model,
 		approaches,
-		tfidf_vectorizer,
-		doc2vec_model
 		)
 
 
@@ -587,7 +490,10 @@ def initial_setup():
 
 
 
-# Make sure to just copy and paste this directly from the returned values from the cached setup function.
+
+
+
+# Make sure to just copy and paste this directly from the returned values from the cached setup function, they can be identically names to make this easier.
 (
 dataset,
 ontologies,
@@ -609,8 +515,6 @@ sentence_id_to_sentences_one_line_truncated,
 sentence_id_to_sentences_with_newline_tokens,
 model,
 approaches,
-tfidf_vectorizer,
-doc2vec_model
 ) = initial_setup()
 
 
@@ -980,16 +884,15 @@ if search_type == "identifiers" and input_text != "":
 
 
 
-			results = search.handle_free_text_query_with_precomputed_sentence_embeddings(
+			results = qh.handle_free_text_query_with_precomputed_sentence_embeddings(
 				search_string = search_string,
 				max_genes = max_number_of_genes_to_show,
 				sent_tokenize_f = nltk.sent_tokenize,
-				preprocess_f = lambda x: " ".join(preprocess_string(x)),
+				preprocess_f = approaches[approach]["preprocessing_function"],
 				vectorization_f = approaches[approach]["vectorization_function"],
 				s_id_to_s = sentence_id_to_sentence,
 				s_id_to_s_embedding = approaches[approach]["sentence_id_to_embedding"],
 				g_id_to_s_ids = gene_id_to_sentences_ids,
-				model = doc2vec_model,
 				threshold = approaches[approach]["threshold"],
 				first=i)
 
@@ -1141,7 +1044,7 @@ elif search_type == "terms" and input_text != "":
 		lines_with_terms_and_links_str = "\n\n".join(lines_with_terms_and_links)
 
 
-		expander = st.beta_expander(label="Other links for these ontology terms", expanded=True)
+		expander = st.beta_expander(label="Show/Hide Additional Resources", expanded=True)
 		with expander:
 			st.markdown(lines_with_terms_and_links_str)
 
@@ -1151,7 +1054,7 @@ elif search_type == "terms" and input_text != "":
 
 
 
-		results = search.handle_annotation_query(
+		results = qh.handle_annotation_query(
 			term_ids = term_ids,
 			max_genes = max_number_of_genes_to_show,
 			g_id_to_annots = gene_id_to_annotations,
@@ -1272,7 +1175,7 @@ elif search_type == "keywords" and input_text != "":
 
 
 	# Call the function that handles free text queries and returns a dataframe, passing in all the required arguments.
-	results = search.handle_keyword_query(
+	results = qh.handle_keyword_query(
 		raw_keywords = raw_keywords,
 		modified_keywords = modified_keywords,
 		max_genes = max_number_of_genes_to_show,
@@ -1407,11 +1310,11 @@ elif search_type == "free_text" and input_text != "":
 
 
 	# Call the function that handles free text queries and returns a dataframe, passing in all the required arguments.
-	results = search.handle_free_text_query(
+	results = qh.handle_free_text_query(
 		search_string = search_string,
 		max_genes = max_number_of_genes_to_show,
 		sent_tokenize_f = nltk.sent_tokenize,
-		preprocess_f = lambda x: " ".join(preprocess_string(x)),
+		preprocess_f = approaches[approach]["preprocessing_function"],
 		model = model,
 		s_id_to_s = sentence_id_to_sentence,
 		s_id_to_preprocessed_s = sentence_id_to_preprocessed_sentence,

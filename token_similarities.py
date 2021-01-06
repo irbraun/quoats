@@ -36,7 +36,7 @@ class LossLogger(CallbackAny2Vec):
 
 
 
-class WordModel():
+class TokenSimilarities():
 
 	def __init__(self, path):
 
