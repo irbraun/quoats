@@ -2,8 +2,7 @@
 
 ### Project goal and description
 
-![GitHub Logo](images/screenshot.png)
-Format: ![Alt Text](url)
+![](images/screenshot.png)
 
 
 
