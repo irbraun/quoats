@@ -63,6 +63,10 @@ class TokenSimilarities():
 
 
 	def similarity(self, token1, token2):
-		#assert token1 in self.vocabulary
-		#assert token2 in self.vocabulary
 		return(self.pairwise_token_similarities[token1].get(token2,0.00))
+
+
+
+	def get_mean_embedding(self, tokens):
+		return(np.array(np.mean([self.model[token] for token in tokens if token in self.vocabulary], axis=0)))
+

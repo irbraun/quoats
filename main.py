@@ -32,7 +32,7 @@ from oats.annotation.ontology import Ontology
 
 
 
-from token_similarities import TokenSimilarities
+from token_similarities import TokenSimilarities, LossLogger
 import query_handlers as qh
 
 
@@ -431,8 +431,11 @@ def initial_setup():
 		save_to_pickle(model, WORD_EMBEDDINGS_PICKLE_PATH)
 
 	# Precomputing other stuff like document or sentence embeddings.
+	sentence_id_to_mean_word2vec_embedding = {i:model.get_mean_embedding(text.split()) for i,text in sentence_id_to_preprocessed_sentence.items()}
+	
 	doc2vec_model = gensim.models.Doc2Vec.load(DOC2VEC_MODEL_PATH)
 	sentence_id_to_doc2vec_embedding = {i:doc2vec_model.infer_vector(text.lower().split()) for i,text in sentence_id_to_preprocessed_sentence.items()}
+	
 	tfidf_vectorizer = TfidfVectorizer(max_df=0.95, min_df=2)
 	tfidf_vectorizer.fit(gene_id_to_preprocessed_description.values())
 	sentence_id_to_tfidf_embedding = {i:tfidf_vectorizer.transform([text]).toarray()[0] for i,text in sentence_id_to_preprocessed_sentence.items()}
@@ -443,12 +446,18 @@ def initial_setup():
 			"sentence_id_to_embedding":sentence_id_to_tfidf_embedding, 
 			"vectorization_function":lambda x: tfidf_vectorizer.transform([x]).toarray()[0],
 			"preprocessing_function":lambda x: " ".join(preprocess_string(x)),
-			"threshold":0.4, 
+			"threshold":0.6, 
 		},
 		"Doc2Vec":{
 			"sentence_id_to_embedding":sentence_id_to_doc2vec_embedding, 
 			"vectorization_function":lambda x: doc2vec_model.infer_vector(x.lower().split()), 
 			"preprocessing_function":lambda x: " ".join(preprocess_string(x)),
+			"threshold":0.6,
+		},
+		"Word2Vec":{
+			"sentence_id_to_embedding":sentence_id_to_mean_word2vec_embedding,
+			"vectorization_function":lambda x: model.get_mean_embedding(x),
+			"preprocessing_function":lambda x: preprocess_string(x),
 			"threshold":0.6,
 		}
 	}
@@ -531,29 +540,6 @@ approaches,
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 ############# The Sidebar ###############
 
 # Option for subsetting the data to only include certain species.
@@ -579,7 +565,7 @@ approach = st.sidebar.selectbox("Method of comparing phenotype descriptions", tu
 
 
 
-ref_text = "If you find this tool useful in your own research, please cite [add reference to preprint here]."
+ref_text = "If you find this tool useful in your own research, please cite this page."
 
 contact_text = "If you have feedback about the tool or experience issues while using it, please contact irbraun@iastate.edu or szarecor@iastate.edu."
 
@@ -884,90 +870,92 @@ if search_type == "identifiers" and input_text != "":
 
 
 
-			results = qh.handle_free_text_query_with_precomputed_sentence_embeddings(
-				search_string = search_string,
-				max_genes = max_number_of_genes_to_show,
-				sent_tokenize_f = nltk.sent_tokenize,
-				preprocess_f = approaches[approach]["preprocessing_function"],
-				vectorization_f = approaches[approach]["vectorization_function"],
-				s_id_to_s = sentence_id_to_sentence,
-				s_id_to_s_embedding = approaches[approach]["sentence_id_to_embedding"],
-				g_id_to_s_ids = gene_id_to_sentences_ids,
-				threshold = approaches[approach]["threshold"],
-				first=i)
+
+			with st.spinner("Searching..."):
+				results = qh.handle_free_text_query_with_precomputed_sentence_embeddings(
+					search_string = search_string,
+					max_genes = max_number_of_genes_to_show,
+					sent_tokenize_f = nltk.sent_tokenize,
+					preprocess_f = approaches[approach]["preprocessing_function"],
+					vectorization_f = approaches[approach]["vectorization_function"],
+					s_id_to_s = sentence_id_to_sentence,
+					s_id_to_s_embedding = approaches[approach]["sentence_id_to_embedding"],
+					g_id_to_s_ids = gene_id_to_sentences_ids,
+					threshold = approaches[approach]["threshold"],
+					first=i)
 
 
 
 
 
 
-			# Creating the formatted version of each column that are pulled either directly from the ones used for processing the query or 
-			# the previously constructed dictionaries that map gene IDs to other information.
-			results[COLUMN_NAMES["rank"]] = results["rank"]
-			results[COLUMN_NAMES["query_sentence"]] = results["q"] 
-			results[COLUMN_NAMES["score"]] = results["score"].map(lambda x: "{:.3f}".format(x))
-			results[COLUMN_NAMES["matching_sentence"]] = results["sentence"] 
-			results[COLUMN_NAMES["gene"]] = results["gene_id"].map(gene_id_to_gene_identifier)
-			results[COLUMN_NAMES["species"]] = results["gene_id"].map(gene_id_to_species)
-			results[COLUMN_NAMES["model"]] = results["gene_id"].map(gene_id_to_gene_model)
+				# Creating the formatted version of each column that are pulled either directly from the ones used for processing the query or 
+				# the previously constructed dictionaries that map gene IDs to other information.
+				results[COLUMN_NAMES["rank"]] = results["rank"]
+				results[COLUMN_NAMES["query_sentence"]] = results["q"] 
+				results[COLUMN_NAMES["score"]] = results["score"].map(lambda x: "{:.3f}".format(x))
+				results[COLUMN_NAMES["matching_sentence"]] = results["sentence"] 
+				results[COLUMN_NAMES["gene"]] = results["gene_id"].map(gene_id_to_gene_identifier)
+				results[COLUMN_NAMES["species"]] = results["gene_id"].map(gene_id_to_species)
+				results[COLUMN_NAMES["model"]] = results["gene_id"].map(gene_id_to_gene_model)
 
 
 
-			# Subsetting to only include a particular set of species.
-			results = results[results[COLUMN_NAMES["species"]].isin(species_list)]
-
-
-
-
-			# Formatting the columns correctly and truncating ones that wrap on multiple lines if the table is compressed.
-			results[COLUMN_NAMES["matching_sentence"]] = results["sentence_id"].map(sentence_id_to_sentences_with_newline_tokens)
-			if truncate:
-				results[COLUMN_NAMES["matching_sentence"]] = results["sentence_id"].map(sentence_id_to_sentences_one_line_truncated)
+				# Subsetting to only include a particular set of species.
+				results = results[results[COLUMN_NAMES["species"]].isin(species_list)]
 
 
 
 
-			# Check to make sure that atleast some rows are left after all the filtering steps are complete.
-			if results.shape[0] == 0:
-				st.markdown("No genes were found that have phenotypes described similarly to this query.")
+				# Formatting the columns correctly and truncating ones that wrap on multiple lines if the table is compressed.
+				results[COLUMN_NAMES["matching_sentence"]] = results["sentence_id"].map(sentence_id_to_sentences_with_newline_tokens)
+				if truncate:
+					results[COLUMN_NAMES["matching_sentence"]] = results["sentence_id"].map(sentence_id_to_sentences_one_line_truncated)
 
 
-			
-			# Display the download options and the plottly table of the results if there were any rows remaining.
-			else:
+
+
+				# Check to make sure that atleast some rows are left after all the filtering steps are complete.
+				if results.shape[0] == 0:
+					st.markdown("No genes were found that have phenotypes described similarly to this query.")
+
+
 				
-				# Show the subset of columns that is relevant to this search.
-				columns_to_include_keys = ["rank", "species", "gene", "model", "score", "query_sentence", "matching_sentence"]
-				columns_to_include_keys_and_wrap = ["matching_sentence"]
-				column_keys_to_unwrap = []
-				column_keys_to_list = []
-				num_rows = results.shape[0]
+				# Display the download options and the plottly table of the results if there were any rows remaining.
+				else:
+					
+					# Show the subset of columns that is relevant to this search.
+					columns_to_include_keys = ["rank", "species", "gene", "model", "score", "query_sentence", "matching_sentence"]
+					columns_to_include_keys_and_wrap = ["matching_sentence"]
+					column_keys_to_unwrap = []
+					column_keys_to_list = []
+					num_rows = results.shape[0]
 
 
 
 
 
-				# Create the expanded section for explaning what the columns are.
-				expander = st.beta_expander(label="Show/Hide Explanation of Columns", expanded=True)
-				with expander:
-					column_keys_and_explanations = [
-					("rank", "Genes are ranked first by the maximum score for any query sentence to a sentence associated with this gene, and then by the mean score for all query sentences."),
-					("score","The average similarity between each word in the query sentence and the most similar word in the phenotype description sentence."),
-					("query_sentence","A sentence from the query.."),
-					("matching_sentence","A sentence from the phenotype descriptions associated with this gene. These sentences are truncated by default so as to only take up one line in the table. Uncheck the '{}' option to expand them.".format(TRUNCATED_TEXT_LABEL)),
-					]
-					st.markdown(get_column_explanation_table(column_keys_and_explanations))
+					# Create the expanded section for explaning what the columns are.
+					expander = st.beta_expander(label="Show/Hide Explanation of Columns", expanded=True)
+					with expander:
+						column_keys_and_explanations = [
+						("rank", "Genes are ranked first by the maximum score for any query sentence to a sentence associated with this gene, and then by the mean score for all query sentences."),
+						("score","The average similarity between each word in the query sentence and the most similar word in the phenotype description sentence."),
+						("query_sentence","A sentence from the query.."),
+						("matching_sentence","A sentence from the phenotype descriptions associated with this gene. These sentences are truncated by default so as to only take up one line in the table. Uncheck the '{}' option to expand them.".format(TRUNCATED_TEXT_LABEL)),
+						]
+						st.markdown(get_column_explanation_table(column_keys_and_explanations))
 
 
 
 
-				# Create the expanded section for presenting download options.
-				expander = st.beta_expander(label="Show/Hide Download Options", expanded=False)
-				with expander:
-					display_download_links(results, columns_to_include_keys, column_keys_to_unwrap, column_keys_to_list, num_rows)
+					# Create the expanded section for presenting download options.
+					expander = st.beta_expander(label="Show/Hide Download Options", expanded=False)
+					with expander:
+						display_download_links(results, columns_to_include_keys, column_keys_to_unwrap, column_keys_to_list, num_rows)
 
-				# Show the main plottly table.
-				display_plottly_dataframe(results, columns_to_include_keys, columns_to_include_keys_and_wrap, num_rows)
+					# Show the main plottly table.
+					display_plottly_dataframe(results, columns_to_include_keys, columns_to_include_keys_and_wrap, num_rows)
 
 
 
@@ -1018,13 +1006,6 @@ elif search_type == "terms" and input_text != "":
 
 		st.markdown("**Terms(s) searched**: {}".format(", ".join(term_ids)))
 
-
-		# Add an expander section for how the view of the results can be customized. This includes the number of genes shown and what item gets its own line.
-		# expander = st.beta_expander(label="Customizing the Results View")
-		# with expander:
-		# 	max_number_of_genes_to_show = st.number_input("Number of genes to display in results", min_value=1, max_value=None, value=50, step=50)
-		
-
 		# Linking out to other resources like Ontobee and Planteome.
 		# TODO Verify that the links lead somewhere valid before displaying them in the application.
 		ontobee_url_template = "http://www.ontobee.org/ontology/{}?iri=http://purl.obolibrary.org/obo/{}_{}"
@@ -1053,75 +1034,75 @@ elif search_type == "terms" and input_text != "":
 
 
 
-
-		results = qh.handle_annotation_query(
-			term_ids = term_ids,
-			max_genes = max_number_of_genes_to_show,
-			g_id_to_annots = gene_id_to_annotations,
-			ontologies = ontologies)
-
-
+		with st.spinner("Searching..."):
+			results = qh.handle_annotation_query(
+				term_ids = term_ids,
+				max_genes = max_number_of_genes_to_show,
+				g_id_to_annots = gene_id_to_annotations,
+				ontologies = ontologies)
 
 
 
-		# Creating the formatted version of each column that are pulled either directly from the ones used for processing the query or 
-		# the previously constructed dictionaries that map gene IDs to other information.
-		results[COLUMN_NAMES["rank"]] = results["rank"]
-		results[COLUMN_NAMES["gene"]] = results["gene_id"].map(gene_id_to_gene_identifier)
-		results[COLUMN_NAMES["species"]] = results["gene_id"].map(gene_id_to_species)
-		results[COLUMN_NAMES["model"]] = results["gene_id"].map(gene_id_to_gene_model)
-		results[COLUMN_NAMES["query_term_id"]] = results["query_term_id"]
-		results[COLUMN_NAMES["query_term_name"]] = results["query_term_name"]
-		results[COLUMN_NAMES["annotated_term_id"]] = results["annotated_term_id"]
-		results[COLUMN_NAMES["annotated_term_name"]] = results["annotated_term_name"]
-
-		# Formatting the columns correctly and truncating ones that wrap on multiple lines if the table is compressed.
-		if truncate:
-			results[COLUMN_NAMES["phenotype"]] = results["gene_id"].map(gene_id_to_descriptions_one_line_truncated)
-		else:
-			results[COLUMN_NAMES["phenotype"]] = results["gene_id"].map(gene_id_to_descriptions_with_newline_tokens)
 
 
+			# Creating the formatted version of each column that are pulled either directly from the ones used for processing the query or 
+			# the previously constructed dictionaries that map gene IDs to other information.
+			results[COLUMN_NAMES["rank"]] = results["rank"]
+			results[COLUMN_NAMES["gene"]] = results["gene_id"].map(gene_id_to_gene_identifier)
+			results[COLUMN_NAMES["species"]] = results["gene_id"].map(gene_id_to_species)
+			results[COLUMN_NAMES["model"]] = results["gene_id"].map(gene_id_to_gene_model)
+			results[COLUMN_NAMES["query_term_id"]] = results["query_term_id"]
+			results[COLUMN_NAMES["query_term_name"]] = results["query_term_name"]
+			results[COLUMN_NAMES["annotated_term_id"]] = results["annotated_term_id"]
+			results[COLUMN_NAMES["annotated_term_name"]] = results["annotated_term_name"]
 
-		# Filtering to include on a specific set of species in the presented rows.
-		results = results[results[COLUMN_NAMES["species"]].isin(species_list)]
-
-
-		# Check to see if there are no rows left after all those filtering steps.
-		if results.shape[0] == 0:
-			st.markdown("No genes were found for '{}'. Make sure the ontology term IDs are separated by commas or spaces and formatted like the examples.".format(term_id))
-
-		
-		else:
-
-			# Show the subset of columns that is relevant to this search.
-			columns_to_include_keys = ["rank", "species", "gene", "model", "query_term_id", "query_term_name", "annotated_term_id", "annotated_term_name"]
-			columns_to_include_keys_and_wrap = []
-			column_keys_to_unwrap = []
-			column_keys_to_list = []
-			num_rows = results.shape[0]
+			# Formatting the columns correctly and truncating ones that wrap on multiple lines if the table is compressed.
+			if truncate:
+				results[COLUMN_NAMES["phenotype"]] = results["gene_id"].map(gene_id_to_descriptions_one_line_truncated)
+			else:
+				results[COLUMN_NAMES["phenotype"]] = results["gene_id"].map(gene_id_to_descriptions_with_newline_tokens)
 
 
-			# Create the expanded section for explaning what the columns are.
-			expander = st.beta_expander(label="Show/Hide Explanation of Columns", expanded=True)
-			with expander:
-				column_keys_and_explanations = [
-				("rank", "Genes are ranked by the number of differerent query terms that map to annotations for a given gene."),
-				("query_term_id","An ontology term identifier from the query."),
-				("query_term_name","The corresponding name of that term in the ontology."),
-				("annotated_term_id","The identifier of an ontology term annotated to this gene, that is either equal to or inherits the queried term."),
-				("annotated_term_name","The corresponding name of that term in the ontology.")
-				]
-				st.markdown(get_column_explanation_table(column_keys_and_explanations))
+
+			# Filtering to include on a specific set of species in the presented rows.
+			results = results[results[COLUMN_NAMES["species"]].isin(species_list)]
 
 
-			# Create the expanded section for presenting download options.
-			expander = st.beta_expander(label="Show/Hide Download Options", expanded=False)
-			with expander:
-				display_download_links(results, columns_to_include_keys, column_keys_to_unwrap, column_keys_to_list, num_rows)
+			# Check to see if there are no rows left after all those filtering steps.
+			if results.shape[0] == 0:
+				st.markdown("No genes were found for '{}'. Make sure the ontology term IDs are separated by commas or spaces and formatted like the examples.".format(term_id))
+
 			
-			# Show the main dataframe of results.
-			display_plottly_dataframe(results, columns_to_include_keys, columns_to_include_keys_and_wrap, num_rows)
+			else:
+
+				# Show the subset of columns that is relevant to this search.
+				columns_to_include_keys = ["rank", "species", "gene", "model", "query_term_id", "query_term_name", "annotated_term_id", "annotated_term_name"]
+				columns_to_include_keys_and_wrap = []
+				column_keys_to_unwrap = []
+				column_keys_to_list = []
+				num_rows = results.shape[0]
+
+
+				# Create the expanded section for explaning what the columns are.
+				expander = st.beta_expander(label="Show/Hide Explanation of Columns", expanded=True)
+				with expander:
+					column_keys_and_explanations = [
+					("rank", "Genes are ranked by the number of differerent query terms that map to annotations for a given gene."),
+					("query_term_id","An ontology term identifier from the query."),
+					("query_term_name","The corresponding name of that term in the ontology."),
+					("annotated_term_id","The identifier of an ontology term annotated to this gene, that is either equal to or inherits the queried term."),
+					("annotated_term_name","The corresponding name of that term in the ontology.")
+					]
+					st.markdown(get_column_explanation_table(column_keys_and_explanations))
+
+
+				# Create the expanded section for presenting download options.
+				expander = st.beta_expander(label="Show/Hide Download Options", expanded=False)
+				with expander:
+					display_download_links(results, columns_to_include_keys, column_keys_to_unwrap, column_keys_to_list, num_rows)
+				
+				# Show the main dataframe of results.
+				display_plottly_dataframe(results, columns_to_include_keys, columns_to_include_keys_and_wrap, num_rows)
 
 
 
@@ -1174,105 +1155,108 @@ elif search_type == "keywords" and input_text != "":
 
 
 
-	# Call the function that handles free text queries and returns a dataframe, passing in all the required arguments.
-	results = qh.handle_keyword_query(
-		raw_keywords = raw_keywords,
-		modified_keywords = modified_keywords,
-		max_genes = max_number_of_genes_to_show,
-		phene_per_line = phene_per_line,
-		s_id_to_s = sentence_id_to_sentence,
-		s_id_to_kw_s = sentence_id_to_sentence_for_keyword_matching,
-		g_id_to_d = gene_id_to_description,
-		g_id_to_kw_d = gene_id_to_description_for_keyword_matching,
-		g_id_to_s_ids = gene_id_to_sentences_ids)
+
+	with st.spinner("Searching..."):
+
+		# Call the function that handles free text queries and returns a dataframe, passing in all the required arguments.
+		results = qh.handle_keyword_query(
+			raw_keywords = raw_keywords,
+			modified_keywords = modified_keywords,
+			max_genes = max_number_of_genes_to_show,
+			phene_per_line = phene_per_line,
+			s_id_to_s = sentence_id_to_sentence,
+			s_id_to_kw_s = sentence_id_to_sentence_for_keyword_matching,
+			g_id_to_d = gene_id_to_description,
+			g_id_to_kw_d = gene_id_to_description_for_keyword_matching,
+			g_id_to_s_ids = gene_id_to_sentences_ids)
 
 
 
 
-	# Adding the formatted columns that are the same no matter what.
-	results[COLUMN_NAMES["rank"]] = results["rank"]
-	results[COLUMN_NAMES["keywords"]] = results["kw_found"] 
-	results[COLUMN_NAMES["gene"]] = results["gene_id"].map(gene_id_to_gene_identifier)
-	results[COLUMN_NAMES["species"]] = results["gene_id"].map(gene_id_to_species)
-	results[COLUMN_NAMES["model"]] = results["gene_id"].map(gene_id_to_gene_model)
-	
-
-
-	# Formatting the column that holds the text description or sentence based on what goes on one line, and if it should be truncated.
-	if phene_per_line:
-		if truncate:
-			results[COLUMN_NAMES["matching_sentence"]] = results["sentence_id"].map(sentence_id_to_sentences_one_line_truncated)
-		else:
-			results[COLUMN_NAMES["matching_sentence"]] = results["sentence_id"].map(sentence_id_to_sentences_with_newline_tokens)
-	else:
-		if truncate:
-			results[COLUMN_NAMES["matching_sentence"]] = results["gene_id"].map(gene_id_to_descriptions_one_line_truncated)
-		else:
-			results[COLUMN_NAMES["matching_sentence"]] = results["gene_id"].map(gene_id_to_descriptions_with_newline_tokens)
-
-
-
-
-	# Subsetting for a particular set of species.
-	results = results[results[COLUMN_NAMES["species"]].isin(species_list)]
-
-
-
-
-	# Checking to see if there are any results at all left after all those filtering steps.
-	if results.shape[0] == 0:
-		st.markdown("No genes were found for '{}'. Make sure the keywords and keyphrases in this search are separated by commas.".format(search_kws))
-
-
-
-
-
-	# If there are some rows left, display them in the formatted plottly table and present download links as well.
-	else:
-		
-
-		# Show the subset of columns that is relevant to this search.
-		columns_to_include_keys = ["rank", "species", "gene", "model", "keywords", "matching_sentence"]
-		columns_to_include_keys_and_wrap = ["matching_sentence"]
-		column_keys_to_unwrap = []
-		column_keys_to_list = []
-		num_rows = results.shape[0]
+		# Adding the formatted columns that are the same no matter what.
+		results[COLUMN_NAMES["rank"]] = results["rank"]
+		results[COLUMN_NAMES["keywords"]] = results["kw_found"] 
+		results[COLUMN_NAMES["gene"]] = results["gene_id"].map(gene_id_to_gene_identifier)
+		results[COLUMN_NAMES["species"]] = results["gene_id"].map(gene_id_to_species)
+		results[COLUMN_NAMES["model"]] = results["gene_id"].map(gene_id_to_gene_model)
 		
 
 
-
-		# Create the expanded section for explaning what the columns are.
-		expander = st.beta_expander(label="Show/Hide Explanation of Columns", expanded=True)
-		with expander:
-
-			if phene_per_line:
-				column_keys_and_explanations = [
-				("rank", "Genes are ranked first by the maximum score for any query sentence to a sentence associated with this gene, and then by the mean score for all query sentences."),
-				("keywords","The words and phrases from the query that are present in this sentence from the phenotype descriptions for this gene."),
-				("matching_sentence","A sentence from the phenotype descriptions associated with this gene. These sentences are truncated by default so as to only take up one line in the table. Uncheck the '{}' option to expand them.".format(TRUNCATED_TEXT_LABEL)),
-				]
-				st.markdown(get_column_explanation_table(column_keys_and_explanations))
-
+		# Formatting the column that holds the text description or sentence based on what goes on one line, and if it should be truncated.
+		if phene_per_line:
+			if truncate:
+				results[COLUMN_NAMES["matching_sentence"]] = results["sentence_id"].map(sentence_id_to_sentences_one_line_truncated)
 			else:
-				column_keys_and_explanations = [
-				("rank", "Genes are ranked first by the maximum score for any query sentence to a sentence associated with this gene, and then by the mean score for all query sentences."),
-				("keywords","The words and phrases from the query that are present in this sentence from the phenotype descriptions for this gene."),
-				("matching_sentence","All of the sentences in the phenotype descriptions associated with this gene. These sentences are truncated by default so as to only take up one line in the table. Uncheck the '{}' option to expand them.".format(TRUNCATED_TEXT_LABEL)),
-				]
-				st.markdown(get_column_explanation_table(column_keys_and_explanations))
+				results[COLUMN_NAMES["matching_sentence"]] = results["sentence_id"].map(sentence_id_to_sentences_with_newline_tokens)
+		else:
+			if truncate:
+				results[COLUMN_NAMES["matching_sentence"]] = results["gene_id"].map(gene_id_to_descriptions_one_line_truncated)
+			else:
+				results[COLUMN_NAMES["matching_sentence"]] = results["gene_id"].map(gene_id_to_descriptions_with_newline_tokens)
+
+
+
+
+		# Subsetting for a particular set of species.
+		results = results[results[COLUMN_NAMES["species"]].isin(species_list)]
+
+
+
+
+		# Checking to see if there are any results at all left after all those filtering steps.
+		if results.shape[0] == 0:
+			st.markdown("No genes were found for '{}'. Make sure the keywords and keyphrases in this search are separated by commas.".format(search_kws))
 
 
 
 
 
-		# Create the expanded section for presenting download options.
-		expander = st.beta_expander(label="Show/Hide Download Options", expanded=False)
-		with expander:
-			display_download_links(results, columns_to_include_keys, column_keys_to_unwrap, column_keys_to_list, num_rows)
-		
+		# If there are some rows left, display them in the formatted plottly table and present download links as well.
+		else:
+			
 
-		# Display the main plottly table.
-		display_plottly_dataframe(results, columns_to_include_keys, columns_to_include_keys_and_wrap, num_rows)
+			# Show the subset of columns that is relevant to this search.
+			columns_to_include_keys = ["rank", "species", "gene", "model", "keywords", "matching_sentence"]
+			columns_to_include_keys_and_wrap = ["matching_sentence"]
+			column_keys_to_unwrap = []
+			column_keys_to_list = []
+			num_rows = results.shape[0]
+			
+
+
+
+			# Create the expanded section for explaning what the columns are.
+			expander = st.beta_expander(label="Show/Hide Explanation of Columns", expanded=True)
+			with expander:
+
+				if phene_per_line:
+					column_keys_and_explanations = [
+					("rank", "Genes are ranked first by the maximum score for any query sentence to a sentence associated with this gene, and then by the mean score for all query sentences."),
+					("keywords","The words and phrases from the query that are present in this sentence from the phenotype descriptions for this gene."),
+					("matching_sentence","A sentence from the phenotype descriptions associated with this gene. These sentences are truncated by default so as to only take up one line in the table. Uncheck the '{}' option to expand them.".format(TRUNCATED_TEXT_LABEL)),
+					]
+					st.markdown(get_column_explanation_table(column_keys_and_explanations))
+
+				else:
+					column_keys_and_explanations = [
+					("rank", "Genes are ranked first by the maximum score for any query sentence to a sentence associated with this gene, and then by the mean score for all query sentences."),
+					("keywords","The words and phrases from the query that are present in this sentence from the phenotype descriptions for this gene."),
+					("matching_sentence","All of the sentences in the phenotype descriptions associated with this gene. These sentences are truncated by default so as to only take up one line in the table. Uncheck the '{}' option to expand them.".format(TRUNCATED_TEXT_LABEL)),
+					]
+					st.markdown(get_column_explanation_table(column_keys_and_explanations))
+
+
+
+
+
+			# Create the expanded section for presenting download options.
+			expander = st.beta_expander(label="Show/Hide Download Options", expanded=False)
+			with expander:
+				display_download_links(results, columns_to_include_keys, column_keys_to_unwrap, column_keys_to_list, num_rows)
+			
+
+			# Display the main plottly table.
+			display_plottly_dataframe(results, columns_to_include_keys, columns_to_include_keys_and_wrap, num_rows)
 
 
 
@@ -1308,87 +1292,89 @@ elif search_type == "free_text" and input_text != "":
 
 
 
-
-	# Call the function that handles free text queries and returns a dataframe, passing in all the required arguments.
-	results = qh.handle_free_text_query(
-		search_string = search_string,
-		max_genes = max_number_of_genes_to_show,
-		sent_tokenize_f = nltk.sent_tokenize,
-		preprocess_f = approaches[approach]["preprocessing_function"],
-		model = model,
-		s_id_to_s = sentence_id_to_sentence,
-		s_id_to_preprocessed_s = sentence_id_to_preprocessed_sentence,
-		g_id_to_s_ids = gene_id_to_sentences_ids,
-		threshold = 0.5)
-
-
-
-
-
-
-
-	# Creating the formatted version of each column that are pulled either directly from the ones used for processing the query or 
-	# the previously constructed dictionaries that map gene IDs to other information.
-	results[COLUMN_NAMES["rank"]] = results["rank"]
-	results[COLUMN_NAMES["query_sentence"]] = results["q"] 
-	results[COLUMN_NAMES["score"]] = results["score"].map(lambda x: "{:.3f}".format(x))
-	results[COLUMN_NAMES["matching_sentence"]] = results["sentence"] 
-	results[COLUMN_NAMES["gene"]] = results["gene_id"].map(gene_id_to_gene_identifier)
-	results[COLUMN_NAMES["species"]] = results["gene_id"].map(gene_id_to_species)
-	results[COLUMN_NAMES["model"]] = results["gene_id"].map(gene_id_to_gene_model)
-
-
-
-	# Subsetting to only include a particular set of species.
-	results = results[results[COLUMN_NAMES["species"]].isin(species_list)]
-
-
-
-
-	# Formatting the columns correctly and truncating ones that wrap on multiple lines if the table is compressed.
-	results[COLUMN_NAMES["matching_sentence"]] = results["sentence_id"].map(sentence_id_to_sentences_with_newline_tokens)
-	if truncate:
-		results[COLUMN_NAMES["matching_sentence"]] = results["sentence_id"].map(sentence_id_to_sentences_one_line_truncated)
-
-
-
-
-	# Check to make sure that atleast some rows are left after all the filtering steps are complete.
-	if results.shape[0] == 0:
-		st.markdown("No genes were found that have phenotypes described similarly to this query.")
-
-	
-	# Display the download options and the plottly table of the results if there were any rows remaining.
-	else:
+	with st.spinner("Searching..."):
 		
-		# Show the subset of columns that is relevant to this search.
-		columns_to_include_keys = ["rank", "species", "gene", "model", "score", "query_sentence", "matching_sentence"]
-		columns_to_include_keys_and_wrap = ["matching_sentence"]
-		column_keys_to_unwrap = []
-		column_keys_to_list = []
-		num_rows = results.shape[0]
+
+		# Call the function that handles free text queries and returns a dataframe, passing in all the required arguments.
+		results = qh.handle_free_text_query(
+			search_string = search_string,
+			max_genes = max_number_of_genes_to_show,
+			sent_tokenize_f = nltk.sent_tokenize,
+			preprocess_f = approaches[approach]["preprocessing_function"],
+			model = model,
+			s_id_to_s = sentence_id_to_sentence,
+			s_id_to_preprocessed_s = sentence_id_to_preprocessed_sentence,
+			g_id_to_s_ids = gene_id_to_sentences_ids,
+			threshold = 0.51)
 
 
-		# Create the expanded section for explaning what the columns are.
-		expander = st.beta_expander(label="Show/Hide Explanation of Columns", expanded=True)
-		with expander:
-			column_keys_and_explanations = [
-			("rank", "Genes are ranked first by the maximum score for any query sentence to a sentence associated with this gene, and then by the mean score for all query sentences."),
-			("score","The average similarity between each word in the query sentence and the most similar word in the phenotype description sentence."),
-			("query_sentence","A sentence from the query.."),
-			("matching_sentence","A sentence from the phenotype descriptions associated with this gene. These sentences are truncated by default so as to only take up one line in the table. Uncheck the '{}' option to expand them.".format(TRUNCATED_TEXT_LABEL)),
-			]
-			st.markdown(get_column_explanation_table(column_keys_and_explanations))
 
 
-		# Create the expanded section for presenting download options.
-		expander = st.beta_expander(label="Show/Hide Download Options", expanded=False)
-		with expander:
-			display_download_links(results, columns_to_include_keys, column_keys_to_unwrap, column_keys_to_list, num_rows)
 
 
-		# Show the main plottly table.
-		display_plottly_dataframe(results, columns_to_include_keys, columns_to_include_keys_and_wrap, num_rows)
+
+		# Creating the formatted version of each column that are pulled either directly from the ones used for processing the query or 
+		# the previously constructed dictionaries that map gene IDs to other information.
+		results[COLUMN_NAMES["rank"]] = results["rank"]
+		results[COLUMN_NAMES["query_sentence"]] = results["q"] 
+		results[COLUMN_NAMES["score"]] = results["score"].map(lambda x: "{:.3f}".format(x))
+		results[COLUMN_NAMES["matching_sentence"]] = results["sentence"] 
+		results[COLUMN_NAMES["gene"]] = results["gene_id"].map(gene_id_to_gene_identifier)
+		results[COLUMN_NAMES["species"]] = results["gene_id"].map(gene_id_to_species)
+		results[COLUMN_NAMES["model"]] = results["gene_id"].map(gene_id_to_gene_model)
+
+
+
+		# Subsetting to only include a particular set of species.
+		results = results[results[COLUMN_NAMES["species"]].isin(species_list)]
+
+
+
+
+		# Formatting the columns correctly and truncating ones that wrap on multiple lines if the table is compressed.
+		results[COLUMN_NAMES["matching_sentence"]] = results["sentence_id"].map(sentence_id_to_sentences_with_newline_tokens)
+		if truncate:
+			results[COLUMN_NAMES["matching_sentence"]] = results["sentence_id"].map(sentence_id_to_sentences_one_line_truncated)
+
+
+
+
+		# Check to make sure that atleast some rows are left after all the filtering steps are complete.
+		if results.shape[0] == 0:
+			st.markdown("No genes were found that have phenotypes described similarly to this query.")
+
+		
+		# Display the download options and the plottly table of the results if there were any rows remaining.
+		else:
+			
+			# Show the subset of columns that is relevant to this search.
+			columns_to_include_keys = ["rank", "species", "gene", "model", "score", "query_sentence", "matching_sentence"]
+			columns_to_include_keys_and_wrap = ["matching_sentence"]
+			column_keys_to_unwrap = []
+			column_keys_to_list = []
+			num_rows = results.shape[0]
+
+
+			# Create the expanded section for explaning what the columns are.
+			expander = st.beta_expander(label="Show/Hide Explanation of Columns", expanded=True)
+			with expander:
+				column_keys_and_explanations = [
+				("rank", "Genes are ranked first by the maximum score for any query sentence to a sentence associated with this gene, and then by the mean score for all query sentences."),
+				("score","The average similarity between each word in the query sentence and the most similar word in the phenotype description sentence."),
+				("query_sentence","A sentence from the query.."),
+				("matching_sentence","A sentence from the phenotype descriptions associated with this gene. These sentences are truncated by default so as to only take up one line in the table. Uncheck the '{}' option to expand them.".format(TRUNCATED_TEXT_LABEL)),
+				]
+				st.markdown(get_column_explanation_table(column_keys_and_explanations))
+
+
+			# Create the expanded section for presenting download options.
+			expander = st.beta_expander(label="Show/Hide Download Options", expanded=False)
+			with expander:
+				display_download_links(results, columns_to_include_keys, column_keys_to_unwrap, column_keys_to_list, num_rows)
+
+
+			# Show the main plottly table.
+			display_plottly_dataframe(results, columns_to_include_keys, columns_to_include_keys_and_wrap, num_rows)
 
 
 

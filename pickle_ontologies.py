@@ -8,17 +8,13 @@ from oats.annotation.ontology import Ontology
 
 
 
-# Paths to obo ontology files are used to create the ontology objects used.
-# If pickling these objects works, that might be bette because building the larger ontology objects takes a long time.
-go_obo_path = "resources/go.obo"                                                                
-po_obo_path = "resources/po.obo"                                                             
-pato_obo_path = "resources/pato.obo"
-go_pickle_path = "resources/go.pickle"                                                                
-po_pickle_path = "resources/po.pickle"                                                             
-pato_pickle_path = "resources/pato.pickle"
-
-
-
+# Define the paths.
+go_obo_path = "ontologies/go.obo"                                                                
+po_obo_path = "ontologies/po.obo"                                                             
+pato_obo_path = "ontologies/pato.obo"
+go_pickle_path = "ontologies/go.pickle"                                                                
+po_pickle_path = "ontologies/po.pickle"                                                             
+pato_pickle_path = "ontologies/pato.pickle"
 
 
 

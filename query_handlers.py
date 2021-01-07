@@ -121,7 +121,7 @@ def handle_free_text_query(search_string, max_genes, sent_tokenize_f, preprocess
 
 
 
-def _get_sentence_scores_for_query_string_2(query_sentence, sentence_id_to_embedding, vectorization_function):
+def _get_sentence_scores_for_query_string_sentence_vectors(query_sentence, sentence_id_to_embedding, vectorization_function):
 
 	sentence_id_to_score = {}
 	query_embedding = vectorization_function(query_sentence)
@@ -141,7 +141,7 @@ def handle_free_text_query_with_precomputed_sentence_embeddings(search_string, m
 	row_list = []
 	for search_raw_sentence in search_raw_sentences:
 		search_preprocessed_sentence = preprocess_f(search_raw_sentence)
-		sentence_id_to_score = _get_sentence_scores_for_query_string_2(search_preprocessed_sentence, s_id_to_s_embedding, vectorization_f)
+		sentence_id_to_score = _get_sentence_scores_for_query_string_sentence_vectors(search_preprocessed_sentence, s_id_to_s_embedding, vectorization_f)
 		gene_id_to_matches = {gene_id:[(sentence_id,sentence_id_to_score[sentence_id]) for sentence_id in sentence_ids] for gene_id,sentence_ids in g_id_to_s_ids.items()}
 		for gene_id,matches in gene_id_to_matches.items():
 			for match in matches:
@@ -220,12 +220,12 @@ def _keyword_search(id_to_text, raw_keywords, modified_keywords):
 	"""Helper function for searching the dataset for keywords and keyphrases.
 	
 	Args:
-		id_to_text (TYPE): Description
-		raw_keywords (TYPE): Description
-		modified_keywords (TYPE): Description
+	    id_to_text (TYPE): Description
+	    raw_keywords (TYPE): Description
+	    modified_keywords (TYPE): Description
 	
 	Returns:
-		TYPE: Description
+	    TYPE: Description
 	"""
 	# The raw keywords and modified keywords should be two paired lists where the elements correspond to one another.
 	# The modifications done to the keywords should already match the modifications done to the texts in the input dictionary so they can be directly compared.
@@ -241,9 +241,22 @@ def _keyword_search(id_to_text, raw_keywords, modified_keywords):
 
 
 def handle_keyword_query(raw_keywords, modified_keywords, max_genes, phene_per_line, s_id_to_s, s_id_to_kw_s, g_id_to_d, g_id_to_kw_d, g_id_to_s_ids):
-
-
-
+	"""Summary
+	
+	Args:
+	    raw_keywords (TYPE): Description
+	    modified_keywords (TYPE): Description
+	    max_genes (TYPE): Description
+	    phene_per_line (TYPE): Description
+	    s_id_to_s (TYPE): Description
+	    s_id_to_kw_s (TYPE): Description
+	    g_id_to_d (TYPE): Description
+	    g_id_to_kw_d (TYPE): Description
+	    g_id_to_s_ids (TYPE): Description
+	
+	Returns:
+	    TYPE: Description
+	"""
 	# One of the lines should refer to a single sentence from a phenotype description for a gene.
 	if phene_per_line:
 		sentence_id_to_found_keywords, sentence_id_to_num_found_keywords = _keyword_search(s_id_to_kw_s, raw_keywords, modified_keywords)
@@ -321,8 +334,17 @@ def handle_keyword_query(raw_keywords, modified_keywords, max_genes, phene_per_l
 
 
 def handle_annotation_query(term_ids, max_genes, g_id_to_annots, ontologies):
-
-
+	"""Summary
+	
+	Args:
+	    term_ids (TYPE): Description
+	    max_genes (TYPE): Description
+	    g_id_to_annots (TYPE): Description
+	    ontologies (TYPE): Description
+	
+	Returns:
+	    TYPE: Description
+	"""
 	row_list = []
 
 	for term_id in term_ids:
