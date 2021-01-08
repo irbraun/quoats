@@ -70,9 +70,9 @@ TO_SPECIES_DISPLAY_NAME = {i:d for i,d in zip(SPECIES_STRINGS_IN_DATA,SPECIES_ST
 
 
 # Paths relevent to the saved machine learning models or classes.
-DOC2VEC_MODEL_PATH = "models/doc2vec_ep100_both_dim200_a_s_min3.model"
-WORD2VEC_MODEL_PATH = "models/word2vec_both_dim200_500_a_s_min3_window8.model"
-WORD_EMBEDDINGS_PICKLE_PATH = "models/saved_token_similarities.pickle"
+DOC2VEC_MODEL_PATH = "models/doc2vec_model_trained_on_plant_phenotypes.model"
+WORD2VEC_MODEL_PATH = "models/word2vec_model_trained_on_plant_phenotypes.model"
+WORD_EMBEDDINGS_PICKLE_PATH = "models/stored_token_similarities.pickle"
 
 
 
@@ -192,7 +192,9 @@ with open(DOC_TABLE_PATH,"r") as f:
 
 doc_expander = st.beta_expander(label="Show/Hide Documentation", expanded=True)
 with doc_expander:
+	st.markdown("## Overview")
 	st.markdown(doc_paragraph)
+	st.markdown("## Details")
 	st.markdown(doc_table)
 
 
@@ -1300,7 +1302,7 @@ elif search_type == "free_text" and input_text != "":
 			search_string = search_string,
 			max_genes = max_number_of_genes_to_show,
 			sent_tokenize_f = nltk.sent_tokenize,
-			preprocess_f = approaches[approach]["preprocessing_function"],
+			preprocess_f = lambda x: " ".join(preprocess_string(x)),
 			model = model,
 			s_id_to_s = sentence_id_to_sentence,
 			s_id_to_preprocessed_s = sentence_id_to_preprocessed_sentence,
