@@ -943,7 +943,7 @@ if search_type == "identifiers" and input_text != "":
 						column_keys_and_explanations = [
 						("rank", "Genes are ranked first by the maximum score for any query sentence to a sentence associated with this gene, and then by the mean score for all query sentences."),
 						("score","The average similarity between each word in the query sentence and the most similar word in the phenotype description sentence."),
-						("query_sentence","A sentence from the query.."),
+						("query_sentence","A sentence from the query."),
 						("matching_sentence","A sentence from the phenotype descriptions associated with this gene. These sentences are truncated by default so as to only take up one line in the table. Uncheck the '{}' option to expand them.".format(TRUNCATED_TEXT_LABEL)),
 						]
 						st.markdown(get_column_explanation_table(column_keys_and_explanations))
@@ -1233,7 +1233,7 @@ elif search_type == "keywords" and input_text != "":
 
 				if phene_per_line:
 					column_keys_and_explanations = [
-					("rank", "Genes are ranked first by the maximum score for any query sentence to a sentence associated with this gene, and then by the mean score for all query sentences."),
+					("rank", "Genes are ranked by the number of matching keywords or keyphrases"),
 					("keywords","The words and phrases from the query that are present in this sentence from the phenotype descriptions for this gene."),
 					("matching_sentence","A sentence from the phenotype descriptions associated with this gene. These sentences are truncated by default so as to only take up one line in the table. Uncheck the '{}' option to expand them.".format(TRUNCATED_TEXT_LABEL)),
 					]
@@ -1241,7 +1241,7 @@ elif search_type == "keywords" and input_text != "":
 
 				else:
 					column_keys_and_explanations = [
-					("rank", "Genes are ranked first by the maximum score for any query sentence to a sentence associated with this gene, and then by the mean score for all query sentences."),
+					("rank", "Genes are ranked by the number of matching keywords or keyphrases."),
 					("keywords","The words and phrases from the query that are present in this sentence from the phenotype descriptions for this gene."),
 					("matching_sentence","All of the sentences in the phenotype descriptions associated with this gene. These sentences are truncated by default so as to only take up one line in the table. Uncheck the '{}' option to expand them.".format(TRUNCATED_TEXT_LABEL)),
 					]
