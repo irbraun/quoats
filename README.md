@@ -12,5 +12,5 @@ This repository contains the code for a [streamlit](https://www.streamlit.io/) a
 A paper describing this tool and related analysis is in preparation.
 
 
-### Have any feedback?
-This webtool is a work in progress. Send any feedback, comments, questions, or suggestions to irbraun at iastate dot edu.
+### Feedback
+This tool is a work in progress. Send any feedback, comments, questions, or suggestions to irbraun at iastate dot edu.
