@@ -10,6 +10,7 @@ COPY documentation ./documentation
 COPY images ./images
 COPY models ./models
 COPY ontologies ./ontologies
+COPY stored ./stored
 COPY lib ./lib
 RUN pip install lib/oats-0.0.1-py3-none-any.whl
 
