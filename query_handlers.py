@@ -51,7 +51,7 @@ def _get_sentence_scores_for_query_string(query_sentence, sentence_id_to_sentenc
 
 
 
-def handle_free_text_query(search_string, max_genes, sent_tokenize_f, preprocess_f, model, s_id_to_s, s_id_to_preprocessed_s, g_id_to_s_ids, threshold):
+def handle_free_text_query(search_string, max_genes, sent_tokenize_f, preprocess_f, model, s_id_to_s, s_id_to_preprocessed_s, g_id_to_s_ids, threshold, ids_subset=None):
 	"""Summary
 	
 	Args:
@@ -107,6 +107,8 @@ def handle_free_text_query(search_string, max_genes, sent_tokenize_f, preprocess
 
 
 	# Filtering and column modifying steps that only apply the sorting is done.
+	if ids_subset is not None:
+		thing = thing[thing["gene_id"].isin(ids_subset)]
 	thing = thing[thing["gene_id"].isin(pd.unique(thing["gene_id"].values)[:max_genes])]
 	gene_id_to_rank = {gene_id:rank for rank,gene_id in enumerate(pd.unique(thing["gene_id"]),1)}
 	thing["rank"] = thing["gene_id"].map(gene_id_to_rank)
@@ -132,7 +134,7 @@ def _get_sentence_scores_for_query_string_sentence_vectors(query_sentence, sente
 
 
 
-def handle_free_text_query_with_precomputed_sentence_embeddings(search_string, max_genes, sent_tokenize_f, preprocess_f, vectorization_f, s_id_to_s, s_id_to_s_embedding, g_id_to_s_ids, threshold, first=None):
+def handle_free_text_query_with_precomputed_sentence_embeddings(search_string, max_genes, sent_tokenize_f, preprocess_f, vectorization_f, s_id_to_s, s_id_to_s_embedding, g_id_to_s_ids, threshold, first=None, ids_subset=None):
 
 
 	search_raw_sentences = sent_tokenize_f(search_string)
@@ -176,6 +178,8 @@ def handle_free_text_query_with_precomputed_sentence_embeddings(search_string, m
 
 
 	# Filtering and column modifying steps that only apply the sorting is done.
+	if ids_subset is not None:
+		thing = thing[thing["gene_id"].isin(ids_subset)]
 	thing = thing[thing["gene_id"].isin(pd.unique(thing["gene_id"].values)[:max_genes])]
 	gene_id_to_rank = {gene_id:rank for rank,gene_id in enumerate(pd.unique(thing["gene_id"]),1)}
 	thing["rank"] = thing["gene_id"].map(gene_id_to_rank)
@@ -240,7 +244,7 @@ def _keyword_search(id_to_text, raw_keywords, modified_keywords):
 
 
 
-def handle_keyword_query(raw_keywords, modified_keywords, max_genes, phene_per_line, s_id_to_s, s_id_to_kw_s, g_id_to_d, g_id_to_kw_d, g_id_to_s_ids):
+def handle_keyword_query(raw_keywords, modified_keywords, max_genes, phene_per_line, s_id_to_s, s_id_to_kw_s, g_id_to_d, g_id_to_kw_d, g_id_to_s_ids, ids_subset=None):
 	"""Summary
 	
 	Args:
@@ -310,6 +314,8 @@ def handle_keyword_query(raw_keywords, modified_keywords, max_genes, phene_per_l
 
 
 	# Filtering and column modifying steps that only apply the sorting is done, this also only operates on columns that are shared between the two dataframes.
+	if ids_subset is not None:
+		thing = thing[thing["gene_id"].isin(ids_subset)]
 	thing = thing[thing["gene_id"].isin(pd.unique(thing["gene_id"].values)[:max_genes])]
 	gene_id_to_rank = {gene_id:rank for rank,gene_id in enumerate(pd.unique(thing["gene_id"]),1)}
 	thing["rank"] = thing["gene_id"].map(gene_id_to_rank)
@@ -333,7 +339,7 @@ def handle_keyword_query(raw_keywords, modified_keywords, max_genes, phene_per_l
 
 
 
-def handle_annotation_query(term_ids, max_genes, g_id_to_annots, ontologies):
+def handle_annotation_query(term_ids, max_genes, g_id_to_annots, ontologies, ids_subset=None):
 	"""Summary
 	
 	Args:
@@ -384,6 +390,8 @@ def handle_annotation_query(term_ids, max_genes, g_id_to_annots, ontologies):
 
 
 	# Filtering and column modifying steps that only apply the sorting is done, this also only operates on columns that are shared between the two dataframes.
+	if ids_subset is not None:
+		results = results[results["gene_id"].isin(ids_subset)]
 	results = results[results["gene_id"].isin(pd.unique(results["gene_id"].values)[:max_genes])]
 	gene_id_to_rank = {gene_id:rank for rank,gene_id in enumerate(pd.unique(results["gene_id"]),1)}
 	results["rank"] = results["gene_id"].map(gene_id_to_rank)

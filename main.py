@@ -32,6 +32,10 @@ from oats.annotation.ontology import Ontology
 
 
 
+
+
+
+
 from token_similarities import TokenSimilarities, LossLogger
 import query_handlers as qh
 
@@ -72,7 +76,17 @@ TO_SPECIES_DISPLAY_NAME = {i:d for i,d in zip(SPECIES_STRINGS_IN_DATA,SPECIES_ST
 # Paths relevent to the saved machine learning models or classes.
 DOC2VEC_MODEL_PATH = "models/doc2vec_model_trained_on_plant_phenotypes.model"
 WORD2VEC_MODEL_PATH = "models/word2vec_model_trained_on_plant_phenotypes.model"
-WORD_EMBEDDINGS_PICKLE_PATH = "models/stored_token_similarities.pickle"
+
+
+
+
+
+
+WORD_EMBEDDINGS_PICKLE_PATH = "stored/stored_token_similarities.pickle"
+SENT_EMBEDDINGS_FROM_WORD2VEC_PATH = "stored/stored_sent_embeddings_from_word2vec"
+SENT_EMBEDDINGS_FROM_DOC2VEC_PATH = "stored/stored_sent_embeddings_from_doc2vec"
+SENT_EMBEDDINGS_FROM_TFIDF_PATH = "stored/stored_sent_embeddings_from_tfidf"
+
 
 
 
@@ -162,9 +176,9 @@ PREPROCESSING_FOR_KEYWORD_SEARCH_FUNCTION = lambda x: "{}{}{}".format(KEYWORD_DE
 
 
 
-# Initial configuration and the logo image at the top of the page.
+# Initial configuration and the header image at the top of the page.
 st.set_page_config(page_title="QuOATS", layout="wide", initial_sidebar_state="expanded")
-PATH_TO_LOGO_PNG = "images/logo.png"
+PATH_TO_LOGO_PNG = "images/header.png"
 st.image(Image.open(PATH_TO_LOGO_PNG), caption=None, width=500, output_format="png")
 st.markdown("### A tool for **Qu**erying phenotype descriptions with **O**ntology **A**nnotations and **T**ext **S**imilarity")
 
@@ -356,6 +370,7 @@ def initial_setup():
 	dataset = Dataset(data=DATASET_PATH, keep_ids=True)
 	dataset.filter_has_description()
 
+
 	df = dataset.to_pandas()
 
 
@@ -432,15 +447,38 @@ def initial_setup():
 		model = TokenSimilarities(WORD2VEC_MODEL_PATH)
 		save_to_pickle(model, WORD_EMBEDDINGS_PICKLE_PATH)
 
-	# Precomputing other stuff like document or sentence embeddings.
-	sentence_id_to_mean_word2vec_embedding = {i:model.get_mean_embedding(text.split()) for i,text in sentence_id_to_preprocessed_sentence.items()}
-	
+
+
+
+	# Load or find the document embeddings from the mean word embeddings.
+	if os.path.exists(SENT_EMBEDDINGS_FROM_WORD2VEC_PATH):
+		sentence_id_to_mean_word2vec_embedding = load_from_pickle(SENT_EMBEDDINGS_FROM_WORD2VEC_PATH)
+	else:
+		sentence_id_to_mean_word2vec_embedding = {i:model.get_mean_embedding(text.split()) for i,text in sentence_id_to_preprocessed_sentence.items()}
+		save_to_pickle(sentence_id_to_mean_word2vec_embedding, SENT_EMBEDDINGS_FROM_WORD2VEC_PATH)
+
+
+
+
+	# Load or find the document embeddings inferred using the Doc2Vec model.
 	doc2vec_model = gensim.models.Doc2Vec.load(DOC2VEC_MODEL_PATH)
-	sentence_id_to_doc2vec_embedding = {i:doc2vec_model.infer_vector(text.lower().split()) for i,text in sentence_id_to_preprocessed_sentence.items()}
+	if os.path.exists(SENT_EMBEDDINGS_FROM_DOC2VEC_PATH):
+		sentence_id_to_doc2vec_embedding = load_from_pickle(SENT_EMBEDDINGS_FROM_DOC2VEC_PATH)
+	else:
+		sentence_id_to_doc2vec_embedding = {i:doc2vec_model.infer_vector(text.lower().split()) for i,text in sentence_id_to_preprocessed_sentence.items()}
+		save_to_pickle(sentence_id_to_doc2vec_embedding, SENT_EMBEDDINGS_FROM_DOC2VEC_PATH)
+		
 	
+
+	# Load or find the document embeddings inferred using tf-idf.
 	tfidf_vectorizer = TfidfVectorizer(max_df=0.95, min_df=2)
 	tfidf_vectorizer.fit(gene_id_to_preprocessed_description.values())
-	sentence_id_to_tfidf_embedding = {i:tfidf_vectorizer.transform([text]).toarray()[0] for i,text in sentence_id_to_preprocessed_sentence.items()}
+	if os.path.exists(SENT_EMBEDDINGS_FROM_TFIDF_PATH):
+		sentence_id_to_tfidf_embedding = load_from_pickle(SENT_EMBEDDINGS_FROM_TFIDF_PATH)
+	else:
+		sentence_id_to_tfidf_embedding = {i:tfidf_vectorizer.transform([text]).toarray()[0] for i,text in sentence_id_to_preprocessed_sentence.items()}
+		save_to_pickle(sentence_id_to_tfidf_embedding, SENT_EMBEDDINGS_FROM_TFIDF_PATH)
+
 
 
 	approaches = {
@@ -601,7 +639,7 @@ st.sidebar.markdown(contact_text)
 # Display the search section of the main page.
 st.markdown("## Search")
 
-search_types = ["free_text", "keywords", "terms", "identifiers"]
+search_types = ["freetext", "keywords", "terms", "identifiers"]
 search_type_labels = ["Free Text", "Keywords & Keyphrases", "Ontology Terms", "Gene Identifiers"]
 search_type_label_map = {t:l for t,l in zip(search_types,search_type_labels)}
 search_types_format_func = lambda x: search_type_label_map[x]
@@ -669,7 +707,7 @@ def display_download_links(df, column_keys, column_keys_to_unwrap, column_keys_t
 
 	# If there were columns that used newline tokens to wrap lines, remove those tokens before downloading.
 	for key in column_keys_to_unwrap:
-		subsets_df[COLUMN_NAMES[key]] = subsets_df[COLUMN_NAMES[key]].map(lambda x: x.replace(NEWLINE_TOKEN,""))
+		subsets_df[COLUMN_NAMES[key]] = subsets_df[COLUMN_NAMES[key]].map(lambda x: x.replace(NEWLINE_TOKEN," "))
 
 	# If there were columns that were using newline tokens to separate lists of something like that, represent those with a semicolon instead.
 	for key in column_keys_to_list:
@@ -698,6 +736,38 @@ def display_download_links(df, column_keys, column_keys_to_unwrap, column_keys_t
 	st.markdown(link, unsafe_allow_html=True)
 
 
+
+
+
+
+def download_output_table(df, column_keys, column_keys_to_unwrap, column_keys_to_list, num_rows, output_path):
+	"""Download an output results table to a specified output path, used when running as a script.
+	
+	Args:
+	    df (TYPE): Description
+	    column_keys (TYPE): Description
+	    column_keys_to_unwrap (TYPE): Description
+	    column_keys_to_list (TYPE): Description
+	    num_rows (TYPE): Description
+	    output_path (TYPE): Description
+	"""
+
+	# Subsetting the dataframe to only contain the indicated number of rows, assumes it is already in the desired order.
+	subsets_df = df[[COLUMN_NAMES[x] for x in column_keys]].head(num_rows)
+
+	# If there were columns that used newline tokens to wrap lines, remove those tokens before downloading.
+	for key in column_keys_to_unwrap:
+		subsets_df[COLUMN_NAMES[key]] = subsets_df[COLUMN_NAMES[key]].map(lambda x: x.replace(NEWLINE_TOKEN," "))
+
+	# If there were columns that were using newline tokens to separate lists of something like that, represent those with a semicolon instead.
+	for key in column_keys_to_list:
+		subsets_df[COLUMN_NAMES[key]] = subsets_df[COLUMN_NAMES[key]].map(lambda x: "{}".format("; ".join(x.split(NEWLINE_TOKEN))))
+
+
+	# Presenting a download link for a tsv file that contains everything in the output table.
+	full = subsets_df.copy(deep=True)
+	full.rename(COLUMN_NAMES_TO_OUTPUT_COLUMN_NAME, inplace=True, axis="columns")
+	full.to_csv(output_path, index=False, sep="\t")
 
 
 
@@ -765,6 +835,76 @@ def display_plottly_dataframe(df, column_keys, column_keys_to_wrap, num_rows):
 		)])
 	fig.update_layout(width=TABLE_WIDTH, height=TABLE_HEIGHT)
 	st.plotly_chart(fig)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+############### Allowing this file to be run as a normal Python script instead of a streamlit application for testing #############
+
+running_as_script = False
+if __name__ == "__main__": 
+	import argparse
+	parser = argparse.ArgumentParser()
+	parser.add_argument("--type", "-t", dest="type", required=True, choices=["freetext", "keywords", "terms"])
+	parser.add_argument("--query", "-q", dest="query", required=True)
+	parser.add_argument("--limit", "-l", dest="limit", required=True, type=int)
+	parser.add_argument("--output", "-o", dest="output", required=True)
+	parser.add_argument("--species", "-s", dest="species", required=False, choices=species_display_names)
+
+	args = parser.parse_args()
+	search_type = args.type
+	input_text = args.query
+	output_path = args.output
+	max_number_of_genes_to_show = args.limit
+	if args.species is None:
+		species_list = species_display_names
+	else:
+		species_list = [args.species]
+
+
+
+	# Making some changes that are specific to the running this as a script.
+	running_as_script = True
+	truncate = False
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -870,8 +1010,7 @@ if search_type == "identifiers" and input_text != "":
 
 			search_string = gene_id_to_description[i]
 
-
-
+			ids_subset = [i for i,species in gene_id_to_species.items() if species in species_list]
 
 			with st.spinner("Searching..."):
 				results = qh.handle_free_text_query_with_precomputed_sentence_embeddings(
@@ -884,7 +1023,8 @@ if search_type == "identifiers" and input_text != "":
 					s_id_to_s_embedding = approaches[approach]["sentence_id_to_embedding"],
 					g_id_to_s_ids = gene_id_to_sentences_ids,
 					threshold = approaches[approach]["threshold"],
-					first=i)
+					first=i,
+					ids_subset=ids_subset)
 
 
 
@@ -930,6 +1070,8 @@ if search_type == "identifiers" and input_text != "":
 					columns_to_include_keys = ["rank", "species", "gene", "model", "score", "query_sentence", "matching_sentence"]
 					columns_to_include_keys_and_wrap = ["matching_sentence"]
 					column_keys_to_unwrap = []
+					if truncate == False:
+						column_keys_to_unwrap = ["matching_sentence"]
 					column_keys_to_list = []
 					num_rows = results.shape[0]
 
@@ -1035,13 +1177,16 @@ elif search_type == "terms" and input_text != "":
 
 
 
+		ids_subset = [i for i,species in gene_id_to_species.items() if species in species_list]
+		
 
 		with st.spinner("Searching..."):
 			results = qh.handle_annotation_query(
 				term_ids = term_ids,
 				max_genes = max_number_of_genes_to_show,
 				g_id_to_annots = gene_id_to_annotations,
-				ontologies = ontologies)
+				ontologies = ontologies,
+				ids_subset=ids_subset)
 
 
 
@@ -1156,6 +1301,7 @@ elif search_type == "keywords" and input_text != "":
 	phene_per_line = st.checkbox(label="Show individual matching sentences on each row (instead of showing one gene on each row)", value=False)
 
 
+	ids_subset = [i for i,species in gene_id_to_species.items() if species in species_list]
 
 
 	with st.spinner("Searching..."):
@@ -1170,7 +1316,8 @@ elif search_type == "keywords" and input_text != "":
 			s_id_to_kw_s = sentence_id_to_sentence_for_keyword_matching,
 			g_id_to_d = gene_id_to_description,
 			g_id_to_kw_d = gene_id_to_description_for_keyword_matching,
-			g_id_to_s_ids = gene_id_to_sentences_ids)
+			g_id_to_s_ids = gene_id_to_sentences_ids,
+			ids_subset=ids_subset)
 
 
 
@@ -1221,6 +1368,8 @@ elif search_type == "keywords" and input_text != "":
 			columns_to_include_keys = ["rank", "species", "gene", "model", "keywords", "matching_sentence"]
 			columns_to_include_keys_and_wrap = ["matching_sentence"]
 			column_keys_to_unwrap = []
+			if truncate == False:
+				column_keys_to_unwrap = ["matching_sentence"]
 			column_keys_to_list = []
 			num_rows = results.shape[0]
 			
@@ -1283,7 +1432,7 @@ elif search_type == "keywords" and input_text != "":
 # /**      /**   //**/********/********      /**    /******** **   //**    /**    
 # //       //     // //////// ////////       //     //////// //     //     //     
 
-elif search_type == "free_text" and input_text != "":
+elif search_type == "freetext" and input_text != "":
 
 
 	search_string = input_text
@@ -1293,6 +1442,8 @@ elif search_type == "free_text" and input_text != "":
 	st.markdown("**Text searched**: {}".format(search_string))
 
 
+
+	ids_subset = [i for i,species in gene_id_to_species.items() if species in species_list]
 
 	with st.spinner("Searching..."):
 		
@@ -1307,7 +1458,8 @@ elif search_type == "free_text" and input_text != "":
 			s_id_to_s = sentence_id_to_sentence,
 			s_id_to_preprocessed_s = sentence_id_to_preprocessed_sentence,
 			g_id_to_s_ids = gene_id_to_sentences_ids,
-			threshold = 0.51)
+			threshold = 0.51,
+			ids_subset=ids_subset)
 
 
 
@@ -1353,6 +1505,8 @@ elif search_type == "free_text" and input_text != "":
 			columns_to_include_keys = ["rank", "species", "gene", "model", "score", "query_sentence", "matching_sentence"]
 			columns_to_include_keys_and_wrap = ["matching_sentence"]
 			column_keys_to_unwrap = []
+			if truncate == False:
+				column_keys_to_unwrap = ["matching_sentence"]
 			column_keys_to_list = []
 			num_rows = results.shape[0]
 
@@ -1391,15 +1545,19 @@ elif search_type == "free_text" and input_text != "":
 
 
 
-
-
-
-
 # Nothing was searched. Default to not showing anything and waiting for one of the interactive widgets to change value.
 else:
 	pass
 	# Should the whole dataset be displayed here instead?
 	# Keeping the else pass as a reminder that some default information could be displayed rather than nothing.
+
+
+
+
+# If this is being run as a script, send the output table to the specified output path.
+if running_as_script and results.shape[0] > 0:
+	download_output_table(results, columns_to_include_keys, column_keys_to_unwrap, column_keys_to_list, num_rows, output_path)
+
 
 
 
