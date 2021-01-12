@@ -10,7 +10,7 @@ This repository contains the code for a [streamlit](https://www.streamlit.io/) a
 The script used to run the streamlit application can also be tested as a Python script by passing arguments to the script. The arguments than can be passed to the `main.py` script are as follows.
 ```
 --type -t:     The type of query that should be executed, one of {freetext, keywords, terms}.
---query -q:    The string of the query surrounded in quotes, formatted depending on the type of the query.
+--query -q:    The query string, with formatting depending on the type of query selected.
 --limit -l:    The maximum number of genes to include in the output file.
 --output -o:   The path where the output file should be saved.
 --species -s:  Optional. Limits the output to only contain genes from this specific species.
