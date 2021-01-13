@@ -15,7 +15,7 @@ The script used to run the streamlit application can also be tested as a Python 
 --output -o:   The path where the output file should be saved.
 --species -s:  Optional. Limits the output to only contain genes from this specific species.
 ```
-Examples of valid queries using the script this way are listed here.
+Examples of valid queries using the script this way are listed here. Note that the formatting of the query depends on the type of search being performed. Free text queries are phenotype-related words, phrases, or sentences separated by periods. Keyword queries are words or phrases separated by commas. Ontology term queries are term identifiers separated by commas or whitespace. Gene identifier queries consist of a species string and a gene identifiers separated by a colon.
 ```
 python main.py -t freetext -q 'small leaves. abnormal roots.' -l 50 -o myfolder/myresults.tsv
 python main.py -t keywords -q 'leaves, roots, auxin' -l 75 -o myfolder/myresults.tsv
