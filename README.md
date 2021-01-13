@@ -9,7 +9,7 @@ This repository contains the code for a [streamlit](https://www.streamlit.io/) a
 ### Running as a Python Script
 The script used to run the streamlit application can also be tested as a Python script by passing arguments to the script. The arguments that can be passed to the `main.py` script are as follows.
 ```
---type -t:     The type of query that should be executed, one of {freetext, keywords, terms}.
+--type -t:     The type of query to perform, one of {freetext, keywords, terms, identifiers}.
 --query -q:    The query string, with formatting depending on the type of query selected.
 --limit -l:    The maximum number of genes to include in the output file.
 --output -o:   The path where the output file should be saved.
@@ -20,6 +20,7 @@ Examples of valid queries using the script this way are listed here.
 python main.py -t freetext -q 'small leaves. abnormal roots.' -l 50 -o myfolder/myresults.tsv
 python main.py -t keywords -q 'leaves, roots, auxin' -l 75 -o myfolder/myresults.tsv
 python main.py -t terms -q 'PO:0000004' -l 200 -o myfolder/myresults.tsv -s Arabidopsis
+python main.py -t identifiers -q arabidopsis:atg7 -l 100 -o myfolder/myresults.tsv
 ```
 
 
