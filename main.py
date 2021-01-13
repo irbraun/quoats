@@ -860,7 +860,7 @@ def display_plottly_dataframe(df, column_keys, column_keys_to_wrap, num_rows):
 
 
 
-
+threshold = 0.51
 
 
 ############### Allowing this file to be run as a normal Python script instead of a streamlit application for testing #############
@@ -874,6 +874,7 @@ if __name__ == "__main__":
 	parser.add_argument("--limit", "-l", dest="limit", required=True, type=int)
 	parser.add_argument("--output", "-o", dest="output", required=True)
 	parser.add_argument("--species", "-s", dest="species", required=False, choices=species_display_names)
+	parser.add_argument("--threshold", "-r", dest="threshold", required=False, type=float)
 
 	args = parser.parse_args()
 	search_type = args.type
@@ -885,14 +886,16 @@ if __name__ == "__main__":
 	else:
 		species_list = [args.species]
 
+	# Overwrite all the thresholds if one was provided.
+	if args.threshold is not None:
+		threshold = args.threshold
+		for approach in approaches:
+			approaches[approach]["threshold"] = threshold
 
 
 	# Making some changes that are specific to the running this as a script.
 	running_as_script = True
 	truncate = False
-
-
-
 
 
 
@@ -1549,7 +1552,7 @@ elif search_type == "freetext" and input_text != "":
 			s_id_to_s = sentence_id_to_sentence,
 			s_id_to_preprocessed_s = sentence_id_to_preprocessed_sentence,
 			g_id_to_s_ids = gene_id_to_sentences_ids,
-			threshold = 0.51,
+			threshold = threshold,
 			ids_subset=ids_subset)
 
 
