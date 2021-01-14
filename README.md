@@ -9,11 +9,13 @@ This repository contains the code for a [streamlit](https://www.streamlit.io/) a
 ### Running as a Python Script
 The script used to run the streamlit application can also be tested as a Python script by passing arguments to the script. The arguments that can be passed to the `main.py` script are as follows.
 ```
---type -t:     The type of query to perform, one of {freetext, keywords, terms, identifiers}.
---query -q:    The query string, with formatting depending on the type of query selected.
---limit -l:    The maximum number of genes to include in the output file.
---output -o:   The path where the output file should be saved.
---species -s:  Optional. Limits the output to only contain genes from this specific species.
+--type -t:      The type of query to perform, one of {freetext, keywords, terms, identifiers}.
+--query -q:     The query string, with formatting depending on the type of query selected.
+--limit -l:     The maximum number of genes to include in the output file.
+--output -o:    The path where the output file should be saved.
+--species -s:   Optional. Limits the output to only contain genes from this specific species.
+--threshold -r: Optional. Cosine similarity threshold for matches to include in output.
+--algorithm -a: Optional. Currently one of {tfdif, word2vec, doc2vec}.
 ```
 Examples of valid queries using the script this way are listed here. Note that the formatting of the query depends on the type of search being performed. Free text queries are phenotype-related words, phrases, or sentences separated by periods. Keyword queries are words or phrases separated by commas. Ontology term queries are term identifiers separated by commas or whitespace. Gene identifier queries consist of a species string and a gene identifier separated by a colon.
 ```
