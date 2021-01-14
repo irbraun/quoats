@@ -485,20 +485,25 @@ def initial_setup():
 
 
 
+
+
 	approaches = {
-		"TF-IDF":{
+		"tfidf":{
+			"name":"TF-IDF",
 			"sentence_id_to_embedding":sentence_id_to_tfidf_embedding, 
 			"vectorization_function":lambda x: tfidf_vectorizer.transform([x]).toarray()[0],
 			"preprocessing_function":lambda x: " ".join(preprocess_string(x)),
 			"threshold":0.6, 
 		},
-		"Doc2Vec":{
+		"doc2vec":{
+			"name":"Doc2Vec",
 			"sentence_id_to_embedding":sentence_id_to_doc2vec_embedding, 
 			"vectorization_function":lambda x: doc2vec_model.infer_vector(x.lower().split()), 
 			"preprocessing_function":lambda x: " ".join(preprocess_string(x)),
 			"threshold":0.6,
 		},
-		"Word2Vec":{
+		"word2vec":{
+			"name":"Word2Vec",
 			"sentence_id_to_embedding":sentence_id_to_mean_word2vec_embedding,
 			"vectorization_function":lambda x: model.get_mean_embedding(x),
 			"preprocessing_function":lambda x: preprocess_string(x),
@@ -605,7 +610,10 @@ TABLE_WIDTH = st.sidebar.slider(label="Table width in pixels", min_value=400, ma
 # Options that are specific to a particular query should go in their own section to make that clear.
 st.sidebar.markdown("### Gene Identifier Query Options")
 synonyms = st.sidebar.checkbox(label="Show possible gene synonyms", value=False)
-approach = st.sidebar.selectbox("Method of comparing phenotype descriptions", tuple(approaches.keys()))
+
+
+
+approach = st.sidebar.selectbox("Method of comparing phenotype descriptions", tuple(approaches.keys()), format_func=lambda x: {k:v["name"] for k,v in approaches.items()}[x])
 
 
 
@@ -868,8 +876,16 @@ threshold = 0.51
 
 ############### Allowing this file to be run as a normal Python script instead of a streamlit application for testing #############
 
-running_as_script = False
-if __name__ == "__main__": 
+
+st.write(st._is_running_with_streamlit)
+
+
+
+
+
+
+if not st._is_running_with_streamlit:
+
 	import argparse
 	parser = argparse.ArgumentParser()
 	parser.add_argument("--type", "-t", dest="type", required=True, choices=search_types)
@@ -896,11 +912,10 @@ if __name__ == "__main__":
 		for approach in approaches:
 			approaches[approach]["threshold"] = threshold
 	if args.algorithm is not None:
-		approach = args.algorithm 
+		approach = args.algorithm.lower()
 
 
 	# Making some changes that are specific to the running this as a script.
-	running_as_script = True
 	truncate = False
 
 
@@ -962,7 +977,7 @@ if search_type == "identifiers" and input_text != "":
 	
 
 	# There is a different way of finding the specific gene if this is being run as a script.
-	if running_as_script:
+	if not st._is_running_with_streamlit:
 
 
 		# Do the actual processing of the search against the full dataset here.
@@ -1656,7 +1671,7 @@ else:
 
 
 # If this is being run as a script, send the output table to the specified output path.
-if running_as_script and results.shape[0] > 0:
+if (not st._is_running_with_streamlit) and (results.shape[0]>0):
 	columns_to_include_keys.append("internal_id")
 	download_output_table(results, columns_to_include_keys, column_keys_to_unwrap, column_keys_to_list, num_rows, output_path)
 
