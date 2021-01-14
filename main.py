@@ -452,33 +452,36 @@ def initial_setup():
 
 
 	# Load or find the document embeddings from the mean word embeddings.
-	if os.path.exists(SENT_EMBEDDINGS_FROM_WORD2VEC_PATH):
-		sentence_id_to_mean_word2vec_embedding = load_from_pickle(SENT_EMBEDDINGS_FROM_WORD2VEC_PATH)
-	else:
-		sentence_id_to_mean_word2vec_embedding = {i:model.get_mean_embedding(text.split()) for i,text in sentence_id_to_preprocessed_sentence.items()}
-		save_to_pickle(sentence_id_to_mean_word2vec_embedding, SENT_EMBEDDINGS_FROM_WORD2VEC_PATH)
+	sentence_id_to_mean_word2vec_embedding = {i:model.get_mean_embedding(text.split()) for i,text in sentence_id_to_preprocessed_sentence.items()}
+	#if os.path.exists(SENT_EMBEDDINGS_FROM_WORD2VEC_PATH):
+	#	sentence_id_to_mean_word2vec_embedding = load_from_pickle(SENT_EMBEDDINGS_FROM_WORD2VEC_PATH)
+	#else:
+	#	sentence_id_to_mean_word2vec_embedding = {i:model.get_mean_embedding(text.split()) for i,text in sentence_id_to_preprocessed_sentence.items()}
+	#	save_to_pickle(sentence_id_to_mean_word2vec_embedding, SENT_EMBEDDINGS_FROM_WORD2VEC_PATH)
 
 
 
 
 	# Load or find the document embeddings inferred using the Doc2Vec model.
 	doc2vec_model = gensim.models.Doc2Vec.load(DOC2VEC_MODEL_PATH)
-	if os.path.exists(SENT_EMBEDDINGS_FROM_DOC2VEC_PATH):
-		sentence_id_to_doc2vec_embedding = load_from_pickle(SENT_EMBEDDINGS_FROM_DOC2VEC_PATH)
-	else:
-		sentence_id_to_doc2vec_embedding = {i:doc2vec_model.infer_vector(text.lower().split()) for i,text in sentence_id_to_preprocessed_sentence.items()}
-		save_to_pickle(sentence_id_to_doc2vec_embedding, SENT_EMBEDDINGS_FROM_DOC2VEC_PATH)
+	sentence_id_to_doc2vec_embedding = {i:doc2vec_model.infer_vector(text.lower().split()) for i,text in sentence_id_to_preprocessed_sentence.items()}
+	#if os.path.exists(SENT_EMBEDDINGS_FROM_DOC2VEC_PATH):
+	#	sentence_id_to_doc2vec_embedding = load_from_pickle(SENT_EMBEDDINGS_FROM_DOC2VEC_PATH)
+	#else:
+	#	sentence_id_to_doc2vec_embedding = {i:doc2vec_model.infer_vector(text.lower().split()) for i,text in sentence_id_to_preprocessed_sentence.items()}
+	#	save_to_pickle(sentence_id_to_doc2vec_embedding, SENT_EMBEDDINGS_FROM_DOC2VEC_PATH)
 		
 	
 
 	# Load or find the document embeddings inferred using tf-idf.
 	tfidf_vectorizer = TfidfVectorizer(max_df=0.95, min_df=2)
 	tfidf_vectorizer.fit(gene_id_to_preprocessed_description.values())
-	if os.path.exists(SENT_EMBEDDINGS_FROM_TFIDF_PATH):
-		sentence_id_to_tfidf_embedding = load_from_pickle(SENT_EMBEDDINGS_FROM_TFIDF_PATH)
-	else:
-		sentence_id_to_tfidf_embedding = {i:tfidf_vectorizer.transform([text]).toarray()[0] for i,text in sentence_id_to_preprocessed_sentence.items()}
-		save_to_pickle(sentence_id_to_tfidf_embedding, SENT_EMBEDDINGS_FROM_TFIDF_PATH)
+	sentence_id_to_tfidf_embedding = {i:tfidf_vectorizer.transform([text]).toarray()[0] for i,text in sentence_id_to_preprocessed_sentence.items()}
+	#if os.path.exists(SENT_EMBEDDINGS_FROM_TFIDF_PATH):
+	#	sentence_id_to_tfidf_embedding = load_from_pickle(SENT_EMBEDDINGS_FROM_TFIDF_PATH)
+	#else:
+	#	sentence_id_to_tfidf_embedding = {i:tfidf_vectorizer.transform([text]).toarray()[0] for i,text in sentence_id_to_preprocessed_sentence.items()}
+	#	save_to_pickle(sentence_id_to_tfidf_embedding, SENT_EMBEDDINGS_FROM_TFIDF_PATH)
 
 
 
@@ -875,6 +878,7 @@ if __name__ == "__main__":
 	parser.add_argument("--output", "-o", dest="output", required=True)
 	parser.add_argument("--species", "-s", dest="species", required=False, choices=species_display_names)
 	parser.add_argument("--threshold", "-r", dest="threshold", required=False, type=float)
+	parser.add_argument("--algorithm", "-a", dest="algorithm", required=False, type=str)
 
 	args = parser.parse_args()
 	search_type = args.type
@@ -891,6 +895,8 @@ if __name__ == "__main__":
 		threshold = args.threshold
 		for approach in approaches:
 			approaches[approach]["threshold"] = threshold
+	if args.algorithm is not None:
+		approach = args.algorithm 
 
 
 	# Making some changes that are specific to the running this as a script.

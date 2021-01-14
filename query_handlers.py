@@ -170,7 +170,7 @@ def handle_free_text_query_with_precomputed_sentence_embeddings(search_string, m
 
 
 	# Sorting the rows.
-	if thing is not None:
+	if first is not None:
 		thing["first"] = thing["gene_id"].map(lambda x: (x==first))
 		thing = thing.sort_values(by=["first","max_score","mean_score","gene_id","score"], ascending=False)
 	else:
