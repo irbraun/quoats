@@ -877,11 +877,6 @@ threshold = 0.51
 ############### Allowing this file to be run as a normal Python script instead of a streamlit application for testing #############
 
 
-st.write(st._is_running_with_streamlit)
-
-
-
-
 
 
 if not st._is_running_with_streamlit:
