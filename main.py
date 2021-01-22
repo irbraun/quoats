@@ -184,6 +184,20 @@ st.image(Image.open(PATH_TO_LOGO_PNG), caption=None, width=500, output_format="p
 st.markdown("### A tool for **Qu**erying phenotype descriptions with **O**ntology **A**nnotations and **T**ext **S**imilarity")
 
 
+hide_streamlit_style = """
+<style>
+#MainMenu {visibility: hidden;}
+footer {visibility: hidden;}
+</style>
+"""
+st.markdown(hide_streamlit_style, unsafe_allow_html=True) 
+
+
+
+
+
+
+
 
 
 
@@ -265,6 +279,8 @@ st.markdown(
 	""",
 	unsafe_allow_html=True,
 )
+
+
 
 
 
