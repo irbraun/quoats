@@ -21,7 +21,7 @@ Examples of valid queries using the script this way are listed here. Note that t
 ```
 python main.py -t freetext -q 'small leaves. abnormal roots.' -l 50 -o myfolder/myresults.tsv
 python main.py -t keywords -q 'leaves, roots, auxin' -l 75 -o myfolder/myresults.tsv
-python main.py -t terms -q PO:0000004 -l 200 -o myfolder/myresults.tsv -s Arabidopsis
+python main.py -t terms -q PO:0000004 -l 200 -s arabidopsis -o myfolder/myresults.tsv 
 python main.py -t identifiers -q arabidopsis:atg7 -l 100 -o myfolder/myresults.tsv
 ```
 
