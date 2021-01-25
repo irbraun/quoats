@@ -20,9 +20,15 @@ from PIL import Image
 from textwrap import wrap
 import plotly
 import plotly.graph_objects as go
+nltk.download('stopwords', quiet=True)
+nltk.download('wordnet', quiet=True)
+nltk.download('punkt', quiet=True)
+nltk.download('averaged_perceptron_tagger', quiet=True)
 
 
 
+
+# Imports from the oats package.
 sys.path.append("../oats")
 import oats
 from oats.utils.utils import load_from_pickle, save_to_pickle, flatten
@@ -30,21 +36,39 @@ from oats.biology.dataset import Dataset
 from oats.annotation.ontology import Ontology
 
 
-
-
-
-
-
-
+# Imports from within this package.
 from token_similarities import TokenSimilarities, LossLogger
 import query_handlers as qh
 
 
 
-nltk.download('stopwords', quiet=True)
-nltk.download('wordnet', quiet=True)
-nltk.download('punkt', quiet=True)
-nltk.download('averaged_perceptron_tagger', quiet=True)
+
+
+
+
+
+
+
+
+
+
+# This section imports all the paths and dictionaries that are in the config file, that would change
+# between different datasets or uses of the streamlit application, that way everything needs to be 
+# altered when using a different dataset, models, or ontologies can be changed in that configutation
+# file and nothing else in any other section in this main script needs to be changed at all.
+import paths_and_models
+DATASET_PATH = paths_and_models.DATASET_PATH
+ONTOLOGY_NAMES = paths_and_models.ONTOLOGY_NAMES
+ONTOLOGY_OBO_PATHS = paths_and_models.ONTOLOGY_OBO_PATHS
+ONTOLOGY_PICKLE_PATHS = paths_and_models.ONTOLOGY_PICKLE_PATHS
+SPECIES_STRINGS_IN_DATA = paths_and_models.SPECIES_STRINGS_IN_DATA
+SPECIES_STRINGS_TO_DISPLAY = paths_and_models.SPECIES_STRINGS_TO_DISPLAY
+TO_SPECIES_DISPLAY_NAME = paths_and_models.TO_SPECIES_DISPLAY_NAME
+GET_APPROACHES = paths_and_models.get_methods
+WORD2VEC_MODEL_PATH = paths_and_models.WORD2VEC_MODEL_PATH
+WORD_EMBEDDINGS_PICKLE_PATH = paths_and_models.WORD_EMBEDDINGS_PICKLE_PATH
+WORD_EMBEDDINGS_PREPROCESSING_FUNCTION = paths_and_models.WORD_EMBEDDINGS_PREPROCESSING_FUNCTION
+# End section.
 
 
 
@@ -59,47 +83,8 @@ nltk.download('averaged_perceptron_tagger', quiet=True)
 # Path to the documentation and dataset of genes, phenotype descriptions and annotations to be used. 
 DOC_PARAGRAPH_PATH = "documentation/paragraph.txt"
 DOC_TABLE_PATH = "documentation/table.txt"
-DATASET_PATH = "data/genes_texts_annots.csv"
-
-# Names and paths specific to the ontologies used.
-ONTOLOGY_NAMES = ["PATO","PO","GO"]
-ONTOLOGY_OBO_PATHS = ["ontologies/pato.obo", "ontologies/po.obo", "ontologies/go.obo"]
-ONTOLOGY_PICKLE_PATHS = ["ontologies/pato.pickle", "ontologies/po.pickle", "ontologies/go.pickle"]
-
-# These mappings are necessary if the internal strings used for species and how they should be displayed are different.
-SPECIES_STRINGS_IN_DATA = ["ath", "zma", "sly", "gmx", "osa", "mtr"]
-SPECIES_STRINGS_TO_DISPLAY = ["Arabidopsis", "Maize", "Tomato", "Soybean", "Rice", "Medicago"]
-TO_SPECIES_DISPLAY_NAME = {i:d for i,d in zip(SPECIES_STRINGS_IN_DATA,SPECIES_STRINGS_TO_DISPLAY)}
-
-
-
-# Paths relevent to the saved machine learning models or classes.
-DOC2VEC_MODEL_PATH = "models/doc2vec_model_trained_on_plant_phenotypes.model"
-WORD2VEC_MODEL_PATH = "models/word2vec_model_trained_on_plant_phenotypes.model"
-
-
-
-
-
-
-WORD_EMBEDDINGS_PICKLE_PATH = "stored/stored_token_similarities.pickle"
-SENT_EMBEDDINGS_FROM_WORD2VEC_PATH = "stored/stored_sent_embeddings_from_word2vec"
-SENT_EMBEDDINGS_FROM_DOC2VEC_PATH = "stored/stored_sent_embeddings_from_doc2vec"
-SENT_EMBEDDINGS_FROM_TFIDF_PATH = "stored/stored_sent_embeddings_from_tfidf"
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+REF_TEXT_PATH = "documentation/references.txt"
+CONTACT_PATH = "documentation/contact.txt"
 
 
 
@@ -349,31 +334,6 @@ def gene_name_search(dataset, gene_name):
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 @st.cache(allow_output_mutation=True, suppress_st_warning=True)
 def initial_setup():
 
@@ -394,9 +354,6 @@ def initial_setup():
 
 	# Building the annotations dictionary. This should actually be done here outside the search sections and only run once.
 	gene_id_to_annotations = dataset.get_annotations_dictionary()
-
-
-
 
 
 	# Load mappings that are specified in this dataset. These are used to put the results from different types of queries together below.
@@ -450,13 +407,6 @@ def initial_setup():
 	sentence_id_to_sentences_with_newline_tokens = {i:NEWLINE_TOKEN.join(wrap(s, DESCRIPTION_COLUMN_WIDTH)) for i,s in sentence_id_to_sentence.items()}
 
 
-
-
-
-
-
-
-
 	# Load the model either from a pickle or have to run the preprocessing steps again.
 	if os.path.exists(WORD_EMBEDDINGS_PICKLE_PATH):
 		model = load_from_pickle(WORD_EMBEDDINGS_PICKLE_PATH)
@@ -465,67 +415,15 @@ def initial_setup():
 		save_to_pickle(model, WORD_EMBEDDINGS_PICKLE_PATH)
 
 
-
-
-	# Load or find the document embeddings from the mean word embeddings.
-	sentence_id_to_mean_word2vec_embedding = {i:model.get_mean_embedding(text.split()) for i,text in sentence_id_to_preprocessed_sentence.items()}
-	#if os.path.exists(SENT_EMBEDDINGS_FROM_WORD2VEC_PATH):
-	#	sentence_id_to_mean_word2vec_embedding = load_from_pickle(SENT_EMBEDDINGS_FROM_WORD2VEC_PATH)
-	#else:
-	#	sentence_id_to_mean_word2vec_embedding = {i:model.get_mean_embedding(text.split()) for i,text in sentence_id_to_preprocessed_sentence.items()}
-	#	save_to_pickle(sentence_id_to_mean_word2vec_embedding, SENT_EMBEDDINGS_FROM_WORD2VEC_PATH)
+	# The call to this function is dependent on how the function is defined in the configuration script.
+	approaches = GET_APPROACHES(
+		word_embedding_object=model, 
+		gene_id_to_preprocessed_description=gene_id_to_preprocessed_description, 
+		sentence_id_to_preprocessed_sentence=sentence_id_to_preprocessed_sentence)
 
 
 
 
-	# Load or find the document embeddings inferred using the Doc2Vec model.
-	doc2vec_model = gensim.models.Doc2Vec.load(DOC2VEC_MODEL_PATH)
-	sentence_id_to_doc2vec_embedding = {i:doc2vec_model.infer_vector(text.lower().split()) for i,text in sentence_id_to_preprocessed_sentence.items()}
-	#if os.path.exists(SENT_EMBEDDINGS_FROM_DOC2VEC_PATH):
-	#	sentence_id_to_doc2vec_embedding = load_from_pickle(SENT_EMBEDDINGS_FROM_DOC2VEC_PATH)
-	#else:
-	#	sentence_id_to_doc2vec_embedding = {i:doc2vec_model.infer_vector(text.lower().split()) for i,text in sentence_id_to_preprocessed_sentence.items()}
-	#	save_to_pickle(sentence_id_to_doc2vec_embedding, SENT_EMBEDDINGS_FROM_DOC2VEC_PATH)
-		
-	
-
-	# Load or find the document embeddings inferred using tf-idf.
-	tfidf_vectorizer = TfidfVectorizer(max_df=0.95, min_df=2)
-	tfidf_vectorizer.fit(gene_id_to_preprocessed_description.values())
-	sentence_id_to_tfidf_embedding = {i:tfidf_vectorizer.transform([text]).toarray()[0] for i,text in sentence_id_to_preprocessed_sentence.items()}
-	#if os.path.exists(SENT_EMBEDDINGS_FROM_TFIDF_PATH):
-	#	sentence_id_to_tfidf_embedding = load_from_pickle(SENT_EMBEDDINGS_FROM_TFIDF_PATH)
-	#else:
-	#	sentence_id_to_tfidf_embedding = {i:tfidf_vectorizer.transform([text]).toarray()[0] for i,text in sentence_id_to_preprocessed_sentence.items()}
-	#	save_to_pickle(sentence_id_to_tfidf_embedding, SENT_EMBEDDINGS_FROM_TFIDF_PATH)
-
-
-
-
-
-	approaches = {
-		"tfidf":{
-			"name":"TF-IDF",
-			"sentence_id_to_embedding":sentence_id_to_tfidf_embedding, 
-			"vectorization_function":lambda x: tfidf_vectorizer.transform([x]).toarray()[0],
-			"preprocessing_function":lambda x: " ".join(preprocess_string(x)),
-			"threshold":0.6, 
-		},
-		"doc2vec":{
-			"name":"Doc2Vec",
-			"sentence_id_to_embedding":sentence_id_to_doc2vec_embedding, 
-			"vectorization_function":lambda x: doc2vec_model.infer_vector(x.lower().split()), 
-			"preprocessing_function":lambda x: " ".join(preprocess_string(x)),
-			"threshold":0.6,
-		},
-		"word2vec":{
-			"name":"Word2Vec",
-			"sentence_id_to_embedding":sentence_id_to_mean_word2vec_embedding,
-			"vectorization_function":lambda x: model.get_mean_embedding(x),
-			"preprocessing_function":lambda x: preprocess_string(x),
-			"threshold":0.6,
-		}
-	}
 
 
 
@@ -632,21 +530,12 @@ synonyms = st.sidebar.checkbox(label="Show possible gene synonyms", value=False)
 approach = st.sidebar.selectbox("Method of comparing phenotype descriptions", tuple(approaches.keys()), format_func=lambda x: {k:v["name"] for k,v in approaches.items()}[x])
 
 
-
-ref_text = "If you find this tool useful in your own research, please cite this page."
-
-contact_text = "If you have feedback about the tool or experience issues while using it, please contact irbraun@iastate.edu or szarecor@iastate.edu."
-
-
-st.sidebar.markdown("### Citation")
-st.sidebar.markdown(ref_text)
-st.sidebar.markdown("### Contact")
-st.sidebar.markdown(contact_text)
-
-
-
-
-
+with open(REF_TEXT_PATH,"r") as f:
+	st.sidebar.markdown("### References")
+	st.sidebar.markdown(f.read())
+with open(CONTACT_PATH,"r") as f:
+	st.sidebar.markdown("### Contact")
+	st.sidebar.markdown(f.read())
 
 
 
@@ -1579,7 +1468,7 @@ elif search_type == "freetext" and input_text != "":
 			search_string = search_string,
 			max_genes = max_number_of_genes_to_show,
 			sent_tokenize_f = nltk.sent_tokenize,
-			preprocess_f = lambda x: " ".join(preprocess_string(x)),
+			preprocess_f = WORD_EMBEDDINGS_PREPROCESSING_FUNCTION,
 			model = model,
 			s_id_to_s = sentence_id_to_sentence,
 			s_id_to_preprocessed_s = sentence_id_to_preprocessed_sentence,

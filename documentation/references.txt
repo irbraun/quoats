@@ -1,0 +1,7 @@
+For background on the topic of computing on phenotype descriptions, see:
+
+[Braun and Lawrence-Dill (2020)](https://www.frontiersin.org/articles/10.3389/fpls.2019.01629/full)
+
+For a discussion on the utility of computing on phenotype descriptions in plants, see:
+
+[Braun and Yanarella et al. (2020)](https://spj.sciencemag.org/journals/plantphenomics/2020/1963251/)
