@@ -26,6 +26,10 @@ python main.py -t identifiers -q arabidopsis:atg7 -l 100 -o myfolder/myresults.t
 ```
 
 
+### Reusing with new or additional data
+This application can be repurposed for other datasets and ontologies, or reused with different or additional data. The relevant code that would need to be changed for different underyling datasets is contained in `paths_and_models.py`. This file contains paths that point to the data and ontologies used, and specify their names in the context of the web application. This file also defines with methods and models are used to compare text descriptions, including the text preprocessing methods associated with each, and their names in the context of the web application. 
+
+
 
 ### Publication
 A paper describing this web application and related analysis is in preparation.
