@@ -538,6 +538,10 @@ with open(CONTACT_PATH,"r") as f:
 	st.sidebar.markdown(f.read())
 
 
+st.sidebar.markdown("### On GitHub")
+st.sidebar.markdown("[github.com/irbraun/quoats](https://github.com/irbraun/quoats)")
+
+
 
 
 
@@ -1533,7 +1537,7 @@ elif search_type == "freetext" and input_text != "":
 				column_keys_and_explanations = [
 				("rank", "Genes are ranked first by the maximum score for any query sentence to a sentence associated with this gene, and then by the mean score for all query sentences."),
 				("score","The average similarity between each word in the query sentence and the most similar word in the phenotype description sentence."),
-				("query_sentence","A sentence from the query.."),
+				("query_sentence","A sentence from the query."),
 				("matching_sentence","A sentence from the phenotype descriptions associated with this gene. These sentences are truncated by default so as to only take up one line in the table. Uncheck the '{}' option to expand them.".format(TRUNCATED_TEXT_LABEL)),
 				]
 				st.markdown(get_column_explanation_table(column_keys_and_explanations))

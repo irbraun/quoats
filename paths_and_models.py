@@ -25,7 +25,8 @@ TO_SPECIES_DISPLAY_NAME = {i:d for i,d in zip(SPECIES_STRINGS_IN_DATA, SPECIES_S
 WORD2VEC_MODEL_PATH = "models/word2vec_model_trained_on_plant_phenotypes.model"
 WORD_EMBEDDINGS_MODEL_PATH = "models/word2vec_model_trained_on_plant_phenotypes.model"
 WORD_EMBEDDINGS_PICKLE_PATH = "stored/stored_token_similarities.pickle"
-WORD_EMBEDDINGS_PREPROCESSING_FUNCTION = lambda x: " ".join(preprocess_string(x)),
+from gensim.parsing.preprocessing import preprocess_string
+WORD_EMBEDDINGS_PREPROCESSING_FUNCTION = lambda x: " ".join(preprocess_string(x))
 
 
 
