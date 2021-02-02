@@ -204,11 +204,11 @@ with open(DOC_TABLE_PATH,"r") as f:
 	all_lines.extend(lines[1:])
 	doc_table = "\n".join(all_lines)
 
-doc_expander = st.beta_expander(label="Show/Hide Documentation", expanded=True)
+doc_expander = st.beta_expander(label="Show/Hide Documentation", expanded=False)
 with doc_expander:
-	st.markdown("## Overview")
+	st.markdown("# Overview")
 	st.markdown(doc_paragraph)
-	st.markdown("## Details")
+	st.markdown("# Details")
 	st.markdown(doc_table)
 
 
@@ -515,10 +515,10 @@ if len(species_list) == 0:
 
 # Options that are general and apply to all the types of queries.
 st.sidebar.markdown("### General Options for all Queries")
-TRUNCATED_TEXT_LABEL = "Truncate phenotype descriptions" 
+TRUNCATED_TEXT_LABEL = "Truncate phenotype descriptions (show only the first line of text for each phenotype to conserve table space)" 
 truncate = st.sidebar.checkbox(label=TRUNCATED_TEXT_LABEL, value=True)
 max_number_of_genes_to_show = st.sidebar.number_input("Maximum number of genes to include in results", min_value=1, max_value=None, value=50, step=50)
-TABLE_WIDTH = st.sidebar.slider(label="Table width in pixels", min_value=400, max_value=8000, value=2000, step=100, format=None, key=None)
+TABLE_WIDTH = st.sidebar.slider(label="Results table width in pixels", min_value=400, max_value=8000, value=2000, step=100, format=None, key=None)
 
 
 # Options that are specific to a particular query should go in their own section to make that clear.
@@ -558,7 +558,7 @@ st.sidebar.markdown("[github.com/irbraun/quoats](https://github.com/irbraun/quoa
 
 
 # Display the search section of the main page.
-st.markdown("## Search")
+st.markdown("# Search")
 
 search_types = ["freetext", "keywords", "terms", "identifiers"]
 search_type_labels = ["Free Text", "Keywords & Keyphrases", "Ontology Terms", "Gene Identifiers"]
