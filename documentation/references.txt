@@ -1,4 +1,8 @@
-For background on the topic of computing on phenotype descriptions, see:
+For related discussion and to cite this application, please use:
+
+[Braun et al. (2021)](https://www.biorxiv.org/content/10.1101/2021.02.04.429796v1)
+
+For additional background on the topic of computing on phenotype descriptions, see:
 
 [Braun and Lawrence-Dill (2020)](https://www.frontiersin.org/articles/10.3389/fpls.2019.01629/full)
 

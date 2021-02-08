@@ -130,6 +130,7 @@ COLUMN_SETTINGS = [
 	("phenotype", "<b>Phenotype Description<b>", 12),
 	("query_sentence", "<b>Query<b>", 5),
 	("matching_sentence", "<b>Matches<b>", 12),
+	("matching_sentence_truncated", "<b>Matches (Truncated)<b>", 12),
 	("query_term_id", "<b>Query Term ID", 2),
 	("query_term_name", "<b>Query Term Name", 4),
 	("annotated_term_id", "<b>Annotated Term ID", 2),
@@ -641,7 +642,7 @@ def display_download_links(df, column_keys, column_keys_to_unwrap, column_keys_t
 	full.rename(COLUMN_NAMES_TO_OUTPUT_COLUMN_NAME, inplace=True, axis="columns")
 	tsv = full.to_csv(index=False, sep="\t")
 	b64 = base64.b64encode(tsv.encode()).decode() 
-	link = f'<a href="data:file/tsv;base64,{b64}" download="query_results.tsv">Complete tab-separated dataset</a>'
+	link = f'<a href="data:file/tsv;base64,{b64}" download="query_results.tsv">Full Table (TSV)</a>'
 	st.markdown(link, unsafe_allow_html=True)
 
 
@@ -653,7 +654,7 @@ def display_download_links(df, column_keys, column_keys_to_unwrap, column_keys_t
 	genes_only.rename(COLUMN_NAMES_TO_OUTPUT_COLUMN_NAME, inplace=True, axis="columns")
 	tsv = genes_only.to_csv(index=False, sep="\t")
 	b64 = base64.b64encode(tsv.encode()).decode() 
-	link = f'<a href="data:file/tsv;base64,{b64}" download="query_results.tsv">List of genes only</a>'
+	link = f'<a href="data:file/tsv;base64,{b64}" download="query_results.tsv">Gene Identifiers Only (TSV)</a>'
 	st.markdown(link, unsafe_allow_html=True)
 
 
@@ -877,7 +878,7 @@ if search_type == "identifiers" and input_text != "":
 
 
 	# Start the results section of the page.
-	st.markdown("## Results")
+	st.markdown("# Results")
 	
 
 	# There is a different way of finding the specific gene if this is being run as a script.
@@ -1074,8 +1075,14 @@ if search_type == "identifiers" and input_text != "":
 
 					# Formatting the columns correctly and truncating ones that wrap on multiple lines if the table is compressed.
 					results[COLUMN_NAMES["matching_sentence"]] = results["sentence_id"].map(sentence_id_to_sentences_with_newline_tokens)
+					results[COLUMN_NAMES["matching_sentence_truncated"]] = results["sentence_id"].map(sentence_id_to_sentences_one_line_truncated)
+
+
+					# Should the text that is displayed in the table on the page be truncated?
 					if truncate:
-						results[COLUMN_NAMES["matching_sentence"]] = results["sentence_id"].map(sentence_id_to_sentences_one_line_truncated)
+						text_column_key = "matching_sentence_truncated"
+					else:
+						text_column_key = "matching_sentence"
 
 
 
@@ -1089,13 +1096,16 @@ if search_type == "identifiers" and input_text != "":
 					# Display the download options and the plottly table of the results if there were any rows remaining.
 					else:
 						
-						# Show the subset of columns that is relevant to this search.
-						columns_to_include_keys = ["rank", "species", "gene", "model", "score", "query_sentence", "matching_sentence"]
-						columns_to_include_keys_and_wrap = ["matching_sentence"]
-						column_keys_to_unwrap = []
-						if truncate == False:
-							column_keys_to_unwrap = ["matching_sentence"]
-						column_keys_to_list = []
+						# Show the subset of columns that are relevant to this search.
+						columns_to_include_keys = ["rank", "species", "gene", "model", "score", "query_sentence", text_column_key]
+						columns_to_include_keys_and_wrap = [text_column_key]
+						
+
+						# Show the subset of columns that are relevant to this search, but specifically just for the downloaded table.
+						columns_to_include_keys_for_downloading = ["rank", "species", "gene", "model", "score", "query_sentence", "matching_sentence"]
+						columns_to_include_keys_and_wrap_for_downloading = ["matching_sentence"]
+						column_keys_to_unwrap_for_downloading = ["matching_sentence"]
+						column_keys_to_list_for_downloading = []
 						num_rows = results.shape[0]
 
 
@@ -1114,12 +1124,10 @@ if search_type == "identifiers" and input_text != "":
 							st.markdown(get_column_explanation_table(column_keys_and_explanations))
 
 
-
-
 						# Create the expanded section for presenting download options.
 						expander = st.beta_expander(label="Show/Hide Download Options", expanded=False)
 						with expander:
-							display_download_links(results, columns_to_include_keys, column_keys_to_unwrap, column_keys_to_list, num_rows)
+							display_download_links(results, columns_to_include_keys_for_downloading, column_keys_to_unwrap_for_downloading, column_keys_to_list_for_downloading, num_rows)
 
 						# Show the main plottly table.
 						display_plottly_dataframe(results, columns_to_include_keys, columns_to_include_keys_and_wrap, num_rows)
@@ -1151,7 +1159,7 @@ if search_type == "identifiers" and input_text != "":
 
 elif search_type == "terms" and input_text != "":
 
-	st.markdown("## Results")
+	st.markdown("# Results")
 
 
 	term_ids = input_text.replace(","," ").split()
@@ -1308,7 +1316,7 @@ elif search_type == "keywords" and input_text != "":
 
 
 	# Start the results section of the page, and give a quick summary of what was queried for.
-	st.markdown("## Results")
+	st.markdown("# Results")
 	keywords_str = ", ".join([kw for kw in raw_keywords if len(kw.split())==1])
 	phrases_str = ", ".join([kw for kw in raw_keywords if len(kw.split())>1])
 	st.markdown("**Word(s) searched**: {}".format(keywords_str))
@@ -1352,16 +1360,19 @@ elif search_type == "keywords" and input_text != "":
 
 		# Formatting the column that holds the text description or sentence based on what goes on one line, and if it should be truncated.
 		if phene_per_line:
-			if truncate:
-				results[COLUMN_NAMES["matching_sentence"]] = results["sentence_id"].map(sentence_id_to_sentences_one_line_truncated)
-			else:
-				results[COLUMN_NAMES["matching_sentence"]] = results["sentence_id"].map(sentence_id_to_sentences_with_newline_tokens)
+			results[COLUMN_NAMES["matching_sentence_truncated"]] = results["sentence_id"].map(sentence_id_to_sentences_one_line_truncated)
+			results[COLUMN_NAMES["matching_sentence"]] = results["sentence_id"].map(sentence_id_to_sentences_with_newline_tokens)
 		else:
-			if truncate:
-				results[COLUMN_NAMES["matching_sentence"]] = results["gene_id"].map(gene_id_to_descriptions_one_line_truncated)
-			else:
-				results[COLUMN_NAMES["matching_sentence"]] = results["gene_id"].map(gene_id_to_descriptions_with_newline_tokens)
+			results[COLUMN_NAMES["matching_sentence_truncated"]] = results["gene_id"].map(gene_id_to_descriptions_one_line_truncated)
+			results[COLUMN_NAMES["matching_sentence"]] = results["gene_id"].map(gene_id_to_descriptions_with_newline_tokens)
 
+
+
+		# Should the text that is displayed in the table on the page be truncated?
+		if truncate:
+			text_column_key = "matching_sentence_truncated"
+		else:
+			text_column_key = "matching_sentence"
 
 
 
@@ -1384,12 +1395,14 @@ elif search_type == "keywords" and input_text != "":
 			
 
 			# Show the subset of columns that is relevant to this search.
-			columns_to_include_keys = ["rank", "species", "gene", "model", "keywords", "matching_sentence"]
-			columns_to_include_keys_and_wrap = ["matching_sentence"]
-			column_keys_to_unwrap = []
-			if truncate == False:
-				column_keys_to_unwrap = ["matching_sentence"]
-			column_keys_to_list = []
+			columns_to_include_keys = ["rank", "species", "gene", "model", "keywords", text_column_key]
+			columns_to_include_keys_and_wrap = [text_column_key]
+			
+			
+			columns_to_include_keys_for_downloading = ["rank", "species", "gene", "model", "keywords", "matching_sentence"]
+			columns_to_include_keys_and_wrap_for_downloading = ["matching_sentence"]
+			column_keys_to_unwrap_for_downloading = ["matching_sentence"]
+			column_keys_to_list_for_downloading = []
 			num_rows = results.shape[0]
 			
 
@@ -1422,7 +1435,7 @@ elif search_type == "keywords" and input_text != "":
 			# Create the expanded section for presenting download options.
 			expander = st.beta_expander(label="Show/Hide Download Options", expanded=False)
 			with expander:
-				display_download_links(results, columns_to_include_keys, column_keys_to_unwrap, column_keys_to_list, num_rows)
+				display_download_links(results, columns_to_include_keys_for_downloading, column_keys_to_unwrap_for_downloading, column_keys_to_list_for_downloading, num_rows)
 			
 
 			# Display the main plottly table.
@@ -1457,7 +1470,7 @@ elif search_type == "freetext" and input_text != "":
 	search_string = input_text
 
 
-	st.markdown("## Results")
+	st.markdown("# Results")
 	st.markdown("**Text searched**: {}".format(search_string))
 
 
@@ -1507,9 +1520,15 @@ elif search_type == "freetext" and input_text != "":
 
 		# Formatting the columns correctly and truncating ones that wrap on multiple lines if the table is compressed.
 		results[COLUMN_NAMES["matching_sentence"]] = results["sentence_id"].map(sentence_id_to_sentences_with_newline_tokens)
-		if truncate:
-			results[COLUMN_NAMES["matching_sentence"]] = results["sentence_id"].map(sentence_id_to_sentences_one_line_truncated)
+		results[COLUMN_NAMES["matching_sentence_truncated"]] = results["sentence_id"].map(sentence_id_to_sentences_one_line_truncated)
 
+
+
+		# Should the text that is displayed in the table on the page be truncated?
+		if truncate:
+			text_column_key = "matching_sentence_truncated"
+		else:
+			text_column_key = "matching_sentence"
 
 
 
@@ -1522,14 +1541,15 @@ elif search_type == "freetext" and input_text != "":
 		else:
 			
 			# Show the subset of columns that is relevant to this search.
-			columns_to_include_keys = ["rank", "species", "gene", "model", "score", "query_sentence", "matching_sentence"]
-			columns_to_include_keys_and_wrap = ["matching_sentence"]
-			column_keys_to_unwrap = []
-			if truncate == False:
-				column_keys_to_unwrap = ["matching_sentence"]
-			column_keys_to_list = []
-			num_rows = results.shape[0]
+			columns_to_include_keys = ["rank", "species", "gene", "model", "score", "query_sentence", text_column_key]
+			columns_to_include_keys_and_wrap = [text_column_key]
 
+			# Show the subset of columns that is relevant to this search, but specifically for the downloaded tables.
+			columns_to_include_keys_for_downloading = ["rank", "species", "gene", "model", "score", "query_sentence", "matching_sentence"]
+			columns_to_include_keys_and_wrap_for_downloading = ["matching_sentence"]
+			column_keys_to_unwrap_for_downloading = ["matching_sentence"]
+			column_keys_to_list_for_downloading = []
+			num_rows = results.shape[0]
 
 			# Create the expanded section for explaning what the columns are.
 			expander = st.beta_expander(label="Show/Hide Explanation of Columns", expanded=True)
@@ -1546,7 +1566,7 @@ elif search_type == "freetext" and input_text != "":
 			# Create the expanded section for presenting download options.
 			expander = st.beta_expander(label="Show/Hide Download Options", expanded=False)
 			with expander:
-				display_download_links(results, columns_to_include_keys, column_keys_to_unwrap, column_keys_to_list, num_rows)
+				display_download_links(results, columns_to_include_keys_for_downloading, column_keys_to_unwrap_for_downloading, column_keys_to_list_for_downloading, num_rows)
 
 
 			# Show the main plottly table.
