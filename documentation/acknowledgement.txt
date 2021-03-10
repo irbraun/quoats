@@ -1,0 +1,1 @@
+The creation of this tool was funded by [USDA NIFA](https://nifa.usda.gov/) [Predoctoral Research Grant #1023100](https://portal.nifa.usda.gov/web/crisprojectpages/1023100-enabling-researchers-to-compute-on-phenotypes-machine-learning-and-natural-language-processing-for-novel-candidate-gene-prediction.html).

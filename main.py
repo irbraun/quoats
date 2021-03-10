@@ -85,6 +85,7 @@ DOC_PARAGRAPH_PATH = "documentation/paragraph.txt"
 DOC_TABLE_PATH = "documentation/table.txt"
 REF_TEXT_PATH = "documentation/references.txt"
 CONTACT_PATH = "documentation/contact.txt"
+ACKKNOWLEDGEMENTS_PATH = "documentation/acknowledgement.txt"
 
 
 
@@ -536,6 +537,9 @@ with open(REF_TEXT_PATH,"r") as f:
 	st.sidebar.markdown(f.read())
 with open(CONTACT_PATH,"r") as f:
 	st.sidebar.markdown("### Contact")
+	st.sidebar.markdown(f.read())
+with open(ACKKNOWLEDGEMENTS_PATH,"r") as f:
+	st.sidebar.markdown("### Funding")
 	st.sidebar.markdown(f.read())
 
 
